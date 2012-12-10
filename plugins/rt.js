@@ -189,7 +189,9 @@ var impl = {
 	},
 
 	onclick: function(etarget) {
-		if(etarget && (etarget.nodeName.toUpperCase()=="A" ||etarget.parentNode.nodeName.toUpperCase()=="A") {
+		if(etarget && 
+				(etarget.nodeName.toUpperCase()=="A" ||
+				 etarget.parentNode.nodeName.toUpperCase()=="A")) {
 			// user clicked a link, they may be going to another page
 			// if this page is being opened in a different tab, then
 			// our unload handler won't fire, so we need to set our
