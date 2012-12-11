@@ -77,13 +77,24 @@ The latest code and docs is available on <a href="http://github.com/lognormal/bo
 </p>
 
 <script src="../../boomerang.js" type="text/javascript"></script>
-<script src="../../plugins/bw.js" type="text/javascript"></script>
+
 <script src="../../plugins/navtiming.js" type="text/javascript"></script>
 <script src="../../plugins/rt.js" type="text/javascript"></script>
+<script src="../../plugins/bw.js" type="text/javascript"></script>
 <script src="howtos.js" type="text/javascript"></script>
 <script type="text/javascript">
-BOOMR.init({
-		user_ip: '10.0.0.1',
+var js; 
+function include_js(url) { 
+    var html_doc = document.getElementsByTagName('head')[0]; 
+    js = document.createElement('script'); 
+    js.setAttribute('type', 'text/javascript'); 
+    js.setAttribute('src', url); 
+    html_doc.appendChild(js); 
+    //当js加载完成时处理的事件 
+    js.onload = function(){
+        BOOMR.init({
+		user_ip: user_ip,
+		uuid:uuid,
 		BW: {
 			base_url: '../../images/',
 			cookie: 'HOWTO-BA'
@@ -92,6 +103,9 @@ BOOMR.init({
 			cookie: 'HOWTO-RT'
 		}
 	});
+    } 
+} 
+include_js("http://115.182.81.61:8001/config.js");
 </script>
 </body>
 </html>

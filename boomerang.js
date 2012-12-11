@@ -222,6 +222,7 @@ boomr = {
 	},
 
 	init: function(config) {
+		console.log(config);
 		var i, k,
 		    properties = ["beacon_url", "site_domain", "user_ip"];
 

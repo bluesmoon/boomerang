@@ -9,17 +9,19 @@
 
 BOOMR = BOOMR || {};
 BOOMR.plugins = BOOMR.plugins || {};
-
-// We choose image sizes so that we can narrow down on a bandwidth range as
-// soon as possible the sizes chosen correspond to bandwidth values of
-// 14-64kbps, 64-256kbps, 256-1024kbps, 1-2Mbps, 2-8Mbps, 8-30Mbps & 30Mbps+
-// Anything below 14kbps will probably timeout before the test completes
-// Anything over 60Mbps will probably be unreliable since latency will make up
-// the largest part of download time. If you want to extend this further to
-// cover 100Mbps & 1Gbps networks, use image sizes of 19,200,000 & 153,600,000
-// bytes respectively
-// See https://spreadsheets.google.com/ccc?key=0AplxPyCzmQi6dDRBN2JEd190N1hhV1N5cHQtUVdBMUE&hl=en_GB
-// for a spreadsheet with the details
+/**
+ *
+ * We choose image sizes so that we can narrow down on a bandwidth range as
+ * soon as possible the sizes chosen correspond to bandwidth values of
+ * 14-64kbps, 64-256kbps, 256-1024kbps, 1-2Mbps, 2-8Mbps, 8-30Mbps & 30Mbps+
+ * Anything below 14kbps will probably timeout before the test completes
+ * Anything over 60Mbps will probably be unreliable since latency will make up
+ * the largest part of download time. If you want to extend this further to
+ * cover 100Mbps & 1Gbps networks, use image sizes of 19,200,000 & 153,600,000
+ * bytes respectively
+ * See https://spreadsheets.google.com/ccc?key=0AplxPyCzmQi6dDRBN2JEd190N1hhV1N5cHQtUVdBMUE&hl=en_GB
+ * for a spreadsheet with the details
+*/
 var images=[
 	{ name: "image-0.png", size: 11483, timeout: 1400 },
 	{ name: "image-1.png", size: 40658, timeout: 1200 },
@@ -78,7 +80,7 @@ var impl = {
 
 		for(i=0; i<l && a[i] < q3+fw; i++) {
 			if(a[i] > q1-fw) {
-				b.push(a[i]);
+			    b.push(a[i]);			    
 			}
 		}
 
@@ -363,7 +365,9 @@ var impl = {
 			this.load_img(i+1, run, this.img_loaded);
 		}
 	},
-
+	/**
+	* count total
+	**/
 	finish: function()
 	{
 		if(!this.latency) {
@@ -377,7 +381,6 @@ var impl = {
 				lat_err:	parseFloat(this.latency.stderr, 10),
 				bw_time:	Math.round(new Date().getTime()/1000)
 			};
-
 		BOOMR.addVar(o);
 		if(bw.debug_info.length > 0) {
 			BOOMR.addVar("bw_debug", bw.debug_info.join(','));
