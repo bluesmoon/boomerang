@@ -4,7 +4,7 @@
  * Copyrights licensed under the BSD License. See the accompanying LICENSE.txt file for terms.
  */
 
-// This is the Bandwidth & Latency plugin abbreviated to BW
+// This is the Bandwidth plugin abbreviated to BW
 (function() {
 
 BOOMR = BOOMR || {};
