@@ -10,36 +10,20 @@
 BOOMR = BOOMR || {};
 BOOMR.plugins = BOOMR.plugins || {};
 /**
- *
- * We choose image sizes so that we can narrow down on a bandwidth range as
- * soon as possible the sizes chosen correspond to bandwidth values of
- * 14-64kbps, 64-256kbps, 256-1024kbps, 1-2Mbps, 2-8Mbps, 8-30Mbps & 30Mbps+
- * Anything below 14kbps will probably timeout before the test completes
- * Anything over 60Mbps will probably be unreliable since latency will make up
- * the largest part of download time. If you want to extend this further to
- * cover 100Mbps & 1Gbps networks, use image sizes of 19,200,000 & 153,600,000
- * bytes respectively
- * See https://spreadsheets.google.com/ccc?key=0AplxPyCzmQi6dDRBN2JEd190N1hhV1N5cHQtUVdBMUE&hl=en_GB
- * yfor a spreadsheet with the details
+ *Only lat test result
 */
-var images=[
-	{ name: "image-0.png", size: 11483, timeout: 1400 },
-	{ name: "image-1.png", size: 40658, timeout: 1200 },
-	{ name: "image-2.png", size: 164897, timeout: 1300 },
-	{ name: "image-3.png", size: 381756, timeout: 1500 },
-	{ name: "image-4.png", size: 1234664, timeout: 1200 },
-	{ name: "image-5.png", size: 4509613, timeout: 1200 },
-	{ name: "image-6.png", size: 9084559, timeout: 1200 }
-];
+var images={
+	l: { name: "image-l.gif", size: 35, timeout: 1000 }
+}
 
-images.end = images.length;
-images.start = 0;
+	images.end = images.length;
+	images.start = 0;
 
 // abuse arrays to do the latency test simply because it avoids a bunch of
 // branches in the rest of the code.
 // I'm sorry Douglas
 images.l = { name: "image-l.gif", size: 35, timeout: 1000 };
-
+console.log(images);
 // private object
 var impl = {
 	// properties
@@ -49,7 +33,7 @@ var impl = {
 	latency_runs: 10,
 	user_ip: '',
 	cookie_exp: 7*86400,
-	cookie: 'BA',
+	cookie: 'LAT',
 
 	// state
 	results: [],
@@ -86,7 +70,9 @@ var impl = {
 
 		return b;
 	},
-
+	/* 
+	*  calcuate 
+	**/
 	calc_latency: function()
 	{
 		var	i, n,
@@ -100,7 +86,7 @@ var impl = {
 		lat_filtered = this.iqr(this.latencies.sort(this.ncmp));
 		n = lat_filtered.length;
 
-		BOOMR.debug(lat_filtered, "bw");
+		BOOMR.debug(lat_filtered, "LAT");
 
 		// First we get the arithmetic mean, standard deviation and standard error
 		// We ignore the first since it paid the price of DNS lookup, TCP connect
@@ -131,125 +117,6 @@ var impl = {
 		return { mean: amean, median: median, stddev: std_dev, stderr: std_err };
 	},
 
-	calc_bw: function()
-	{
-		var	i, j, n=0,
-			r, bandwidths=[], bandwidths_corrected=[],
-			sum=0, sumsq=0, sum_corrected=0, sumsq_corrected=0,
-			amean, std_dev, std_err, median,
-			amean_corrected, std_dev_corrected, std_err_corrected, median_corrected,
-			nimgs, bw, bw_c, debug_info=[];
-
-		for(i=0; i<this.nruns; i++) {
-			if(!this.results[i] || !this.results[i].r) {
-				continue;
-			}
-
-			r=this.results[i].r;
-
-			// the next loop we iterate through backwards and only consider the largest
-			// 3 images that succeeded that way we don't consider small images that
-			// downloaded fast without really saturating the network
-			nimgs=0;
-			for(j=r.length-1; j>=0 && nimgs<3; j--) {
-				// if we hit an undefined image time, we skipped everything before this
-				if(!r[j]) {
-					break;
-				}
-				if(r[j].t === null) {
-					continue;
-				}
-
-				n++;
-				nimgs++;
-
-				// multiply by 1000 since t is in milliseconds and not seconds
-				bw = images[j].size*1000/r[j].t;
-				bandwidths.push(bw);
-
-				bw_c = images[j].size*1000/(r[j].t - this.latency.mean);
-				bandwidths_corrected.push(bw_c);
-
-				if(r[j].t < this.latency.mean) {
-					debug_info.push("" + j + "_" + r[j].t);
-				}
-			}
-		}
-
-		BOOMR.debug('got ' + n + ' readings', "bw");
-
-		BOOMR.debug('bandwidths: ' + bandwidths, "bw");
-		BOOMR.debug('corrected: ' + bandwidths_corrected, "bw");
-
-		// First do IQR filtering since we use the median here
-		// and should use the stddev after filtering.
-		if(bandwidths.length > 3) {
-			bandwidths = this.iqr(bandwidths.sort(this.ncmp));
-			bandwidths_corrected = this.iqr(bandwidths_corrected.sort(this.ncmp));
-		} else {
-			bandwidths = bandwidths.sort(this.ncmp);
-			bandwidths_corrected = bandwidths_corrected.sort(this.ncmp);
-		}
-
-		BOOMR.debug('after iqr: ' + bandwidths, "bw");
-		BOOMR.debug('corrected: ' + bandwidths_corrected, "bw");
-
-		// Now get the mean & median.
-		// Also get corrected values that eliminate latency
-		n = Math.max(bandwidths.length, bandwidths_corrected.length);
-		for(i=0; i<n; i++) {
-			if(i<bandwidths.length) {
-				sum += bandwidths[i];
-				sumsq += Math.pow(bandwidths[i], 2);
-			}
-			if(i<bandwidths_corrected.length) {
-				sum_corrected += bandwidths_corrected[i];
-				sumsq_corrected += Math.pow(bandwidths_corrected[i], 2);
-			}
-		}
-
-		n = bandwidths.length;
-		amean = Math.round(sum/n);
-		std_dev = Math.sqrt(sumsq/n - Math.pow(sum/n, 2));
-		std_err = Math.round(1.96 * std_dev/Math.sqrt(n));
-		std_dev = Math.round(std_dev);
-
-		n = bandwidths.length-1;
-		median = Math.round(
-				(bandwidths[Math.floor(n/2)] + bandwidths[Math.ceil(n/2)]) / 2
-			);
-
-		n = bandwidths_corrected.length;
-		amean_corrected = Math.round(sum_corrected/n);
-		std_dev_corrected = Math.sqrt(sumsq_corrected/n - Math.pow(sum_corrected/n, 2));
-		std_err_corrected = (1.96 * std_dev_corrected/Math.sqrt(n)).toFixed(2);
-		std_dev_corrected = std_dev_corrected.toFixed(2);
-
-		n = bandwidths_corrected.length-1;
-		median_corrected = Math.round(
-					(
-						bandwidths_corrected[Math.floor(n/2)]
-						+ bandwidths_corrected[Math.ceil(n/2)]
-					) / 2
-				);
-
-		BOOMR.debug('amean: ' + amean + ', median: ' + median, "bw");
-		BOOMR.debug('corrected amean: ' + amean_corrected + ', '
-				+ 'median: ' + median_corrected, "bw");
-
-		return {
-			mean: amean,
-			stddev: std_dev,
-			stderr: std_err,
-			median: median,
-			mean_corrected: amean_corrected,
-			stddev_corrected: std_dev_corrected,
-			stderr_corrected: std_err_corrected,
-			median_corrected: median_corrected,
-			debug_info: debug_info
-		};
-	},
-
 	defer: function(method)
 	{
 		var that=this;
@@ -258,8 +125,7 @@ var impl = {
 
 	load_img: function(i, run, callback)
 	{
-		var url = this.base_url + images[i].name
-			+ '?t=' + (new Date().getTime()) + Math.random(),	// Math.random() is slow, but we get it before we start the timer
+		var url = this.base_url + images[i].name+ '?t=' + (new Date().getTime()) + Math.random(),	// Math.random() is slow, but we get it before we start the timer
 		    timer=0, tstart=0,
 		    img = new Image(),
 		    that=this;
@@ -353,7 +219,7 @@ var impl = {
 		if(i >= images.end-1
 			|| typeof this.results[this.nruns-run].r[i+1] !== "undefined"
 		) {
-			BOOMR.debug(this.results[this.nruns-run], "bw");
+			BOOMR.debug(this.results[this.nruns-run], "LAT");
 			// First run is a pilot test to decide what the largest image
 			// that we can download is. All following runs only try to
 			// download this image
@@ -361,37 +227,28 @@ var impl = {
 				images.start = i;
 			}
 			this.defer(this.iterate);
-		} else {
-			this.load_img(i+1, run, this.img_loaded);
 		}
 	},
-
+	/**
+	* count total
+	**/
 	finish: function()
 	{
 		if(!this.latency) {
 			this.latency = this.calc_latency();
 		}
-		var	bw = this.calc_bw(),
-			o = {
-				bw:		bw.median_corrected,
-				bw_err:		parseFloat(bw.stderr_corrected, 10),
+		var		o = {
 				lat:		this.latency.mean,
 				lat_err:	parseFloat(this.latency.stderr, 10),
 				bw_time:	Math.round(new Date().getTime()/1000)
 			};
-
 		BOOMR.addVar(o);
-		if(bw.debug_info.length > 0) {
-			BOOMR.addVar("bw_debug", bw.debug_info.join(','));
-		}
 
 		// If we have an IP address we can make the BA cookie persistent for a while
 		// because we'll recalculate it if necessary (when the user's IP changes).
-		if(!isNaN(o.bw) && o.bw > 0) {
 			BOOMR.utils.setCookie(this.cookie,
 						{
-							ba: Math.round(o.bw),
-							be: o.bw_err,
+
 							l:  o.lat,
 							le: o.lat_err,
 							ip: this.user_ip,
@@ -399,7 +256,6 @@ var impl = {
 						},
 						(this.user_ip ? this.cookie_exp : 0)
 				);
-		}
 
 		this.complete = true;
 		BOOMR.sendBeacon();
@@ -407,20 +263,17 @@ var impl = {
 	},
 
 	iterate: function()
+
 	{
 		if(this.aborted) {
 			return false;
 		}
 
-		if(!this.runs_left) {
+		if(!this.latency_runs) {
 			this.finish();
 		}
 		else if(this.latency_runs) {
 			this.load_img('l', this.latency_runs--, this.lat_loaded);
-		}
-		else {
-			this.results.push({r:[]});
-			this.load_img(images.start, this.runs_left--, this.img_loaded);
 		}
 	},
 
@@ -458,21 +311,22 @@ var impl = {
 
 };
 
-BOOMR.plugins.BW = {
+BOOMR.plugins.LAT = {
 	init: function(config) {
+
 		var cookies;
 
 		if(impl.complete) {
 			return this;
 		}
 
-		BOOMR.utils.pluginConfig(impl, config, "BW",
+		BOOMR.utils.pluginConfig(impl, config, "LAT",
 						["base_url", "timeout", "nruns", "cookie", "cookie_exp"]);
 
 		if(config && config.user_ip) {
 			impl.user_ip = config.user_ip;
 		}
-
+		impl.base_url  = config.BW.base_url;
 		if(!impl.base_url) {
 			return this;
 		}
@@ -494,7 +348,6 @@ BOOMR.plugins.BW = {
 			BOOMR.subscribe("page_ready", this.run, null, this);
 			BOOMR.subscribe("page_unload", this.skip, null, this);
 		}
-
 		return this;
 	},
 
@@ -509,7 +362,7 @@ BOOMR.plugins.BW = {
 			// will complain about insecure resources, so the best is to just bail
 			// and hope that the user gets the cookie from some other page
 
-			BOOMR.info("HTTPS detected, skipping bandwidth test", "bw");
+			BOOMR.info("HTTPS detected, skipping bandwidth test", "LAT");
 			impl.complete = true;
 			BOOMR.sendBeacon();
 			return this;
@@ -520,7 +373,6 @@ BOOMR.plugins.BW = {
 		setTimeout(this.abort, impl.timeout);
 
 		impl.defer(impl.iterate);
-
 		return this;
 	},
 
