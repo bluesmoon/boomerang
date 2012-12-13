@@ -338,7 +338,7 @@ BOOMR.plugins.LAT = {
 		impl.complete = false;
 		impl.aborted = false;
 
-		BOOMR.removeVar('ba', 'ba_err', 'lat', 'lat_err');
+		BOOMR.removeVar('lat', 'lat_err');
 
 		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
 
