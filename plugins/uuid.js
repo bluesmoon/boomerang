@@ -1,15 +1,7 @@
 /**
-\file plugin.js
-Skeleton template for all boomerang plugins.  Use this code as a starting point for your
-own plugins.
+**  this function can get uuid from server 
+**  
 */
-
-//////////////////////////////////////////////////////////
-//    DO NOT INCLUDE THIS FILE IN YOUR HTML DOCUMENT    //
-//               THIS IS A SAMPLE PLUGIN                //
-//////////////////////////////////////////////////////////
-
-// w is the window object
 (function(w) {
 
 var d=w.document;
