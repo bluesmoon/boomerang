@@ -457,15 +457,17 @@ BOOMR.plugins.BW = {
 		}
 
 		BOOMR.utils.pluginConfig(impl, config, "BW",
-						["base_url", "timeout", "nruns", "cookie", "cookie_exp"]);
-
+						["base_url", "timeout", "nruns", "cookie", "cookie_exp","day"]);
 		if(config && config.user_ip) {
 			impl.user_ip = config.user_ip;
 		}
 		if(!impl.base_url) {
 			return this;
 		}
-
+		/*Expiration time to read from the configuration file (day)*/
+		if(impl.day){
+			impl.cookie_exp = impl.day*86400;
+		}
 		images.start = 0;
 		impl.runs_left = impl.nruns;
 		impl.latency_runs = 10;

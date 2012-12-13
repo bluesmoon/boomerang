@@ -4,9 +4,8 @@
  * Copyrights licensed under the BSD License. See the accompanying LICENSE.txt file for terms.
  */
 
-// This is the  Latency plugin 
+// This is the Bandwidth & Latency plugin abbreviated to BW
 (function() {
-
 BOOMR = BOOMR || {};
 BOOMR.plugins = BOOMR.plugins || {};
 /**
@@ -23,7 +22,6 @@ var images={
 // branches in the rest of the code.
 // I'm sorry Douglas
 images.l = { name: "image-l.gif", size: 35, timeout: 1000 };
-console.log(images);
 // private object
 var impl = {
 	// properties
@@ -278,9 +276,7 @@ var impl = {
 	},
 
 	setVarsFromCookie: function(cookies) {
-		var ba = parseInt(cookies.ba, 10),
-		    bw_e = parseFloat(cookies.be, 10),
-		    lat = parseInt(cookies.l, 10) || 0,
+		var lat = parseInt(cookies.l, 10) || 0,
 		    lat_e = parseFloat(cookies.le, 10) || 0,
 		    c_sn = cookies.ip.replace(/\.\d+$/, '0'),	// Note this is IPv4 only
 		    t = parseInt(cookies.t, 10),
@@ -321,12 +317,14 @@ BOOMR.plugins.LAT = {
 		}
 
 		BOOMR.utils.pluginConfig(impl, config, "LAT",
-						["base_url", "timeout", "nruns", "cookie", "cookie_exp"]);
-
+						["base_url", "timeout", "nruns", "cookie", "cookie_exp","day"]);
+		/*depend on config day*/
+		if(impl.day){
+			impl.cookie_exp =  impl.day*86400;
+		}
 		if(config && config.user_ip) {
 			impl.user_ip = config.user_ip;
 		}
-		impl.base_url  = config.BW.base_url;
 		if(!impl.base_url) {
 			return this;
 		}
