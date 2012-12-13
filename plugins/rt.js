@@ -167,7 +167,7 @@ var impl = {
 			// on it don't get sent back.  Never use requestStart since if
 			// the first request fails and the browser retries, it will contain
 			// the value for the new request.
-			BOOMR.addVar("rt.start", source || "navigation");
+			BOOMR.addVar("rt_start", source || "navigation");
 			this.navigationStart = ti.navigationStart || ti.fetchStart || undefined;
 			this.responseStart = ti.responseStart || undefined;
 
@@ -330,10 +330,10 @@ BOOMR.plugins.RT = {
 		}
 		else if(impl.t_start && impl.navigationType !== 2) {
 			t_start = impl.t_start;			// 2 is TYPE_BACK_FORWARD but the constant may not be defined across browsers
-			BOOMR.addVar("rt.start", "cookie");	// if the user hit the back button, referrer will match, and cookie will match
+			BOOMR.addVar("rt_start", "cookie");	// if the user hit the back button, referrer will match, and cookie will match
 		}						// but will have time of previous page start, so t_done will be wrong
 		else {
-			BOOMR.addVar("rt.start", "none");
+			BOOMR.addVar("rt_start", "none");
 			t_start = undefined;			// force all timers to NaN state
 		}
 
@@ -342,11 +342,11 @@ BOOMR.plugins.RT = {
 		this.endTimer("t_done", t_done);
 
 		// make sure old variables don't stick around
-		BOOMR.removeVar('t_done', 't_page', 't_resp', 'r', 'r2', 'rt.tstart', 'rt.bstart', 'rt.end', 't_postrender', 't_prerender', 't_load');
+		BOOMR.removeVar('t_done', 't_page', 't_resp', 'r', 'r2', 'rt_tstart', 'rt_bstart', 'rt_end', 't_postrender', 't_prerender', 't_load');
 
-		BOOMR.addVar('rt.tstart', t_start);
-		BOOMR.addVar('rt.bstart', BOOMR.t_start);
-		BOOMR.addVar('rt.end', impl.timers.t_done.end);	// don't just use t_done because dev may have called endTimer before we did
+		BOOMR.addVar('rt_tstart', t_start);
+		BOOMR.addVar('rt_bstart', BOOMR.t_start);
+		BOOMR.addVar('rt_end', impl.timers.t_done.end);	// don't just use t_done because dev may have called endTimer before we did
 
 		for(t_name in impl.timers) {
 			if(!impl.timers.hasOwnProperty(t_name)) {

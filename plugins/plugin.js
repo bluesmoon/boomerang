@@ -32,7 +32,6 @@ BOOMR.plugins.MyPlugin = {
 		BOOMR.utils.pluginConfig(impl, config, "MyPlugin", properties);
 
 		// Other initialisation code here
-
 		// Subscribe to any BOOMR events here.
 		// Unless your code will explicitly be called by the developer
 		// or by another plugin, you must to do this.

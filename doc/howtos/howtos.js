@@ -1,7 +1,7 @@
 // Since we don't set a beacon_url, we'll just subscribe to the before_beacon function
 // and print the results into the browser itself.
 BOOMR.subscribe('before_beacon', function(o) {
-	var html = "", t_name, t_other, others = [];
+var html = "", t_name, t_other, others = [];
 	if(!o.t_other) o.t_other = "";
 
 	for(var k in o) {
@@ -39,6 +39,5 @@ BOOMR.subscribe('before_beacon', function(o) {
 
 		}
 	}
-
 });
 
