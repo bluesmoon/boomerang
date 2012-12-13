@@ -341,7 +341,7 @@ BOOMR.plugins.LAT = {
 //		BOOMR.removeVar('lat', 'lat_err');
 
 		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
-
+		/*若缓存中没有，则直接退出*/
 		if(!cookies || !cookies.ba || !impl.setVarsFromCookie(cookies)) {
 			BOOMR.subscribe("page_ready", this.run, null, this);
 			BOOMR.subscribe("page_unload", this.skip, null, this);
