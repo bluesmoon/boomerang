@@ -130,6 +130,29 @@ setInterval(function(){
 	i++;
 	if(i >3 && jsdone == 0){
 		BOOMR.addVar({requestto:1});
+		       BOOMR.init({
+		user_ip: user_ip,
+
+		userid:{
+			userid:uuid,
+			siteid:123004
+		},
+		BW: {
+			base_url: '../../images/',	/**/
+			cookie: 'HOWTO-BA',			/*cookie 的时间*/
+			day:15
+		},
+		LAT:{
+			base_url: '../../images/',
+			cookie:'HOWTO-LAT',
+			timeout:3500,
+			day:15
+		},
+		RT: {
+			cookie: 'HOWTO-RT'
+		}
+	});
+		clearInterval(this);
 	}
 
 },1000);
