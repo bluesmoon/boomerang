@@ -14,9 +14,8 @@ BOOMR.plugins = BOOMR.plugins || {};
 var images={
 	l: { name: "image-l.gif", size: 35, timeout: 1000 }
 }
-
-	images.end = images.length;
-	images.start = 0;
+images.end = images.length;
+images.start = 0;
 
 // abuse arrays to do the latency test simply because it avoids a bunch of
 // branches in the rest of the code.
@@ -315,9 +314,7 @@ BOOMR.plugins.LAT = {
 						["base_url", "timeout", "nruns", "cookie", "cookie_exp","day"]);
 		/*depend on config day*/
 		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
-		if(cookies){
-			return this;
-		}
+
 		if(impl.day){
 			impl.cookie_exp =  impl.day*86400;
 		}
