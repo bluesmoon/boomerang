@@ -385,6 +385,7 @@ var impl = {
 						{
 							ba: Math.round(o.bw),
 							be: o.bw_err,
+
 							ip: this.user_ip,
 							t:  o.bw_time
 						},
@@ -415,6 +416,8 @@ var impl = {
 	setVarsFromCookie: function(cookies) {
 		var ba = parseInt(cookies.ba, 10),
 		    bw_e = parseFloat(cookies.be, 10),
+		    lat = parseInt(cookies.l, 10) || 0,
+		    lat_e = parseFloat(cookies.le, 10) || 0,
 		    c_sn = cookies.ip.replace(/\.\d+$/, '0'),	// Note this is IPv4 only
 		    t = parseInt(cookies.t, 10),
 		    p_sn = this.user_ip.replace(/\.\d+$/, '0'),
