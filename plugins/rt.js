@@ -209,6 +209,7 @@ BOOMR.plugins.RT = {
 	// Methods
 
 	init: function(config) {
+
 		if(w != BOOMR.window) {
 			w = BOOMR.window;
 			d = w.document;

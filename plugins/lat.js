@@ -238,7 +238,7 @@ var impl = {
 		var		o = {
 				lat:		this.latency.mean,
 				lat_err:	parseFloat(this.latency.stderr, 10),
-				bw_time:	Math.round(new Date().getTime()/1000)
+				lat_time:	Math.round(new Date().getTime()/1000)
 			};
 		BOOMR.addVar(o);
 
@@ -249,7 +249,7 @@ var impl = {
 
 							l:  o.lat,
 							ip: this.user_ip,
-							t:  o.bw_time
+							t:  o.lat_time
 						},
 						(this.user_ip ? this.cookie_exp : 0)
 				);
@@ -308,17 +308,18 @@ var impl = {
 
 BOOMR.plugins.LAT = {
 	init: function(config) {
-
 		var cookies;
+
 		if(impl.complete) {
 			return this;
 		}
-
 		BOOMR.utils.pluginConfig(impl, config, "LAT",
 						["base_url", "timeout", "nruns", "cookie", "cookie_exp","day"]);
 		/*depend on config day*/
 		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
-
+		if(cookies){
+			return this;
+		}
 		if(impl.day){
 			impl.cookie_exp =  impl.day*86400;
 		}
@@ -346,6 +347,7 @@ BOOMR.plugins.LAT = {
 			BOOMR.subscribe("page_ready", this.run, null, this);
 			BOOMR.subscribe("page_unload", this.skip, null, this);
 		}
+
 		return this;
 	},
 
@@ -353,7 +355,6 @@ BOOMR.plugins.LAT = {
 		if(impl.running || impl.complete) {
 			return this;
 		}
-
 		if(BOOMR.window.location.protocol === 'https:') {
 			// we don't run the test for https because SSL stuff will mess up b/w
 			// calculations we could run the test itself over HTTP, but then IE

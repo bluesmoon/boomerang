@@ -450,7 +450,7 @@ var impl = {
 BOOMR.plugins.BW = {
 	init: function(config) {
 		var cookies;
-
+		
 		if(impl.complete) {
 			return this;
 		}
