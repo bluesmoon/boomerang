@@ -248,11 +248,11 @@ var impl = {
 
 							l:  o.lat,
 							ip: this.user_ip,
+							l_err:o.lat_err,
 							t:  o.lat_time
 						},
 						(this.user_ip ? this.cookie_exp : 0)
 				);
-
 		this.complete = true;
 		BOOMR.sendBeacon();
 		this.running = false;
@@ -314,7 +314,18 @@ BOOMR.plugins.LAT = {
 						["base_url", "timeout", "nruns", "cookie", "cookie_exp","day"]);
 		/*depend on config day*/
 		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
-
+		/*若已经存储在cookies中，则直接输出，结束插件事件*/
+		if(cookies){
+			var		o = {
+				lat:		cookies.l,
+				lat_err:	cookies.l_err,
+				lat_time:	cookies.t
+			};
+			BOOMR.addVar(o);
+			console.log(o);
+			impl.complete=true;
+			return this;
+		}
 		if(impl.day){
 			impl.cookie_exp =  impl.day*86400;
 		}
