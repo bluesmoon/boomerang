@@ -248,7 +248,6 @@ var impl = {
 						{
 
 							l:  o.lat,
-							le: o.lat_err,
 							ip: this.user_ip,
 							t:  o.bw_time
 						},
@@ -311,7 +310,6 @@ BOOMR.plugins.LAT = {
 	init: function(config) {
 
 		var cookies;
-
 		if(impl.complete) {
 			return this;
 		}
@@ -319,6 +317,8 @@ BOOMR.plugins.LAT = {
 		BOOMR.utils.pluginConfig(impl, config, "LAT",
 						["base_url", "timeout", "nruns", "cookie", "cookie_exp","day"]);
 		/*depend on config day*/
+		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
+
 		if(impl.day){
 			impl.cookie_exp =  impl.day*86400;
 		}
@@ -338,9 +338,9 @@ BOOMR.plugins.LAT = {
 		impl.complete = false;
 		impl.aborted = false;
 		/*depend on cookies expect time*/
-//		BOOMR.removeVar('lat', 'lat_err');
+	//		BOOMR.removeVar('lat', 'lat_err');
 
-		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
+		
 		/*若缓存中没有，则直接退出*/
 		if(!cookies || !cookies.ba || !impl.setVarsFromCookie(cookies)) {
 			BOOMR.subscribe("page_ready", this.run, null, this);
