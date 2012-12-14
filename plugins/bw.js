@@ -293,25 +293,6 @@ var impl = {
 		img.src=url;
 	},
 
-	lat_loaded: function(i, tstart, run, success)
-	{
-		if(run !== this.latency_runs+1) {
-			return;
-		}
-
-		if(success !== null) {
-			var lat = new Date().getTime() - tstart;
-			this.latencies.push(lat);
-		}
-		// we've got all the latency images at this point,
-		// so we can calculate latency
-		if(this.latency_runs === 0) {
-			this.latency = this.calc_latency();
-		}
-
-		this.defer(this.iterate);
-	},
-
 	img_loaded: function(i, tstart, run, success)
 	{
 		if(run !== this.runs_left+1) {
@@ -369,8 +350,6 @@ var impl = {
 			o = {
 				bw:		bw.median_corrected,
 				bw_err:		parseFloat(bw.stderr_corrected, 10),
-				lat:		this.latency.mean,
-				lat_err:	parseFloat(this.latency.stderr, 10),
 				bw_time:	Math.round(new Date().getTime()/1000)
 			};
 		BOOMR.addVar(o);
@@ -416,8 +395,6 @@ var impl = {
 	setVarsFromCookie: function(cookies) {
 		var ba = parseInt(cookies.ba, 10),
 		    bw_e = parseFloat(cookies.be, 10),
-		    lat = parseInt(cookies.l, 10) || 0,
-		    lat_e = parseFloat(cookies.le, 10) || 0,
 		    c_sn = cookies.ip.replace(/\.\d+$/, '0'),	// Note this is IPv4 only
 		    t = parseInt(cookies.t, 10),
 		    p_sn = this.user_ip.replace(/\.\d+$/, '0'),
@@ -434,9 +411,7 @@ var impl = {
 			this.complete = true;
 			BOOMR.addVar({
 				'bw': ba,
-				'lat': lat,
 				'bw_err': bw_e,
-				'lat_err': lat_e
 			});
 
 			return true;
@@ -476,7 +451,7 @@ BOOMR.plugins.BW = {
 		impl.complete = false;
 		impl.aborted = false;
 
-		BOOMR.removeVar('ba', 'ba_err', 'lat', 'lat_err');
+		BOOMR.removeVar('ba', 'ba_err');
 
 		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
 		if(cookies){
