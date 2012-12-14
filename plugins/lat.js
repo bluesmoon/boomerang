@@ -292,9 +292,7 @@ var impl = {
 		if(c_sn === p_sn && t >= t_now - this.cookie_exp && ba > 0) {
 			this.complete = true;
 			BOOMR.addVar({
-				'bw': ba,
 				'lat': lat,
-				'bw_err': bw_e,
 				'lat_err': lat_e
 			});
 
