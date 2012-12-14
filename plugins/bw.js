@@ -450,7 +450,7 @@ var impl = {
 BOOMR.plugins.BW = {
 	init: function(config) {
 		var cookies;
-		
+
 		if(impl.complete) {
 			return this;
 		}
@@ -479,7 +479,10 @@ BOOMR.plugins.BW = {
 		BOOMR.removeVar('ba', 'ba_err', 'lat', 'lat_err');
 
 		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
-
+		if(cookies){
+			impl.complete = true;
+			return this;
+		}
 		if(!cookies || !cookies.ba || !impl.setVarsFromCookie(cookies)) {
 			BOOMR.subscribe("page_ready", this.run, null, this);
 			BOOMR.subscribe("page_unload", this.skip, null, this);
