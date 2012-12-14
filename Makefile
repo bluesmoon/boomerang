@@ -1,7 +1,7 @@
 # Copyright (c) 2011, Yahoo! Inc.  All rights reserved.
 # Copyrights licensed under the BSD License. See the accompanying LICENSE.txt file for terms.
 
-PLUGINS := plugins/rt.js plugins/bw.js  plugins/lat.js plugins/mobile.js plugins/navitiming.js plugins/uuid.js plugins/memory.js plugins/dns.js
+PLUGINS := plugins/rt.js plugins/bw.js  plugins/lat.js plugins/mobile.js plugins/navtiming.js plugins/uuid.js plugins/memory.js plugins/dns.js
 
 VERSION := $(shell sed -ne '/^BOOMR\.version/{s/^.*"\([^"]*\)".*/\1/;p;q;}' boomerang.js)
 DATE := $(shell date +%s)
