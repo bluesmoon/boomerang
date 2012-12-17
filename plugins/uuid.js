@@ -28,7 +28,7 @@ var impl = {
 	cookie_exp: 356*86400,
 	/*设置userinfo的信息到cookies*/
 	getcookies:function(){
-			var		o = {
+	    var o = {
 				userid:		this.userid,
 				siteid: 	this.siteid
 			};
@@ -47,6 +47,8 @@ var impl = {
 						},
 						(this.cookie_exp)
 				);
+	    /*返回数据*/
+	    this.getcookies();
 	}
 };
 
