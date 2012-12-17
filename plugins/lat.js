@@ -241,7 +241,6 @@ var impl = {
 				lat_time:	Math.round(new Date().getTime()/1000)
 			};
 		BOOMR.addVar(o);
-		console.log(o);
 
 		// If we have an IP address we can make the BA cookie persistent for a while
 		// because we'll recalculate it if necessary (when the user's IP changes).

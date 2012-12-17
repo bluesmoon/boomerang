@@ -20,17 +20,17 @@ function include_js(url) {
 		},
 		BW: {
 			base_url: '../../images/',	
-			cookie: 'HOWTO-BA',			
+			cookie: 'BA',			
 			day:15
 		},
 		LAT:{
 			base_url: '../../images/',
-			cookie:'HOWTO-LAT',
+			cookie:'LAT',
 			timeout:3500,
 			day:15
 		},
 		RT: {
-			cookie: 'HOWTO-RT'
+			cookie: 'RT'
 		}
 	});
     } 
