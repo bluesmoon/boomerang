@@ -237,10 +237,11 @@ var impl = {
 		}
 		var		o = {
 				lat:		this.latency.mean,
-				lat_err:	parseFloat(this.latency.stderr, 10),
+				lat_err:	1,
 				lat_time:	Math.round(new Date().getTime()/1000)
 			};
 		BOOMR.addVar(o);
+
 
 		// If we have an IP address we can make the BA cookie persistent for a while
 		// because we'll recalculate it if necessary (when the user's IP changes).
@@ -323,7 +324,6 @@ BOOMR.plugins.LAT = {
 				lat_time:	cookies.t
 			};
 			BOOMR.addVar(o);
-			console.log(o);
 			impl.complete=true;
 			return this;
 		}
@@ -409,7 +409,7 @@ BOOMR.plugins.LAT = {
 		return this;
 	},
 
-	is_complete: function() { return impl.complete; }
+	is_complete: function() {  return impl.complete; }
 };
 
 }());

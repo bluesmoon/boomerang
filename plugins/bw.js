@@ -411,12 +411,11 @@ var impl = {
 			this.complete = true;
 			BOOMR.addVar({
 				'bw': ba,
-				'bw_err': bw_e,
+				'bw_err': bw_e
 			});
 
 			return true;
 		}
-
 		return false;
 	}
 
