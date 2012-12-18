@@ -75,6 +75,7 @@ The latest code and docs is available on <a href="http://github.com/lognormal/bo
 
 <p id="results">
 </p>
+<script src="http://115.182.81.61:8001/config/" type="text/javascript" language="javascript"></script>
 <script src="../../boomerang.js" type="text/javascript"></script>
 <script src="../../plugins/bw.js" type="text/javascript"></script>
 <script src="../../plugins/navtiming.js" type="text/javascript"></script>
@@ -112,13 +113,14 @@ function loadJs(sid,jsurl,callback){
         }       
 }
 //loadJs("boomerageroot","../../boomerang-0.9.1355723718.js",function(){});
-	        BOOMR.loaduserinfo({
-			user_ip: '202.101.172.35',
+	        BOOMR.init({
+			user_ip: user_ip,
 			beacon_url: "http://115.182.81.61:8001/1.gif",
 			config_url:"http://115.182.81.61:8001/config/",
 			site_domain:"www.test.com",
 			userid:{
-				siteid:123004
+				siteid:123004,
+				userid: uuid
 			},
 			BW: {
 				base_url: '../../images/',	/**/

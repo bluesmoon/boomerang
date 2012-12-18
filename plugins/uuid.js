@@ -55,7 +55,7 @@ var impl = {
 BOOMR.plugins.uuid = {
 	init: function(config) {
 
-		var i, properties = ["userid", "siteid"];	
+		var i, properties = ["userid", "siteid"];
 		/*从cookies中读取本扩展的cookies*/
 		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
 		/*若没有在cookies中读取到用户的数据，生成新的数据，若有，直接获取cookies中的信息*/

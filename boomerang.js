@@ -261,19 +261,6 @@ BOOMR_start = new Date().getTime();
                 return (props > 0);
             }
         },
-       	loaduserinfo:function(config){
-       		var init = this.init;
-       		var ref = function(){
-       			
-       		}
-       			this.utils.LoadJs("config",config.config_url,function(){
-       				config['user_ip'] = user_ip;
-       				config.userid = {
-       					userid:uuid,
-       				}
-       				init(config);
-       			})
-       	},
         init : function (config) {
             var i,
             k,
