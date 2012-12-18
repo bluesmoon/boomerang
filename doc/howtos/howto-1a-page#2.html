@@ -31,7 +31,7 @@ The latest code and docs is available on <a href="http://github.com/lognormal/bo
 </p>
 
 <script src="http://115.182.81.61:8001/config/" type="text/javascript" language="javascript"></script>
-<script src="../../boomerang.js" type="text/javascript"></script>
+<script src="../../boomerang.js" type="text/javascript" onerror=""></script>
 <script src="../../plugins/bw.js" type="text/javascript"></script>
 <script src="../../plugins/navtiming.js" type="text/javascript"></script>
 <script src="../../plugins/rt.js" type="text/javascript"></script>
@@ -39,58 +39,79 @@ The latest code and docs is available on <a href="http://github.com/lognormal/bo
 <script src="../../plugins/lat.js" type="text/javascript"></script>
 <script src="howtos.js" type="text/javascript"></script>
 
-  <script type="text/javascript" language="javascript">
-function loadJs(sid,jsurl,callback){
-        var nodeHead = document.getElementsByTagName('head')[0];
-        var nodeScript = null;
-        //不存在加载
-        if(document.getElementById(sid) == null){
-                nodeScript = document.createElement('script');
-                nodeScript.setAttribute('type', 'text/javascript');
-                nodeScript.setAttribute('src', jsurl);
-                nodeScript.setAttribute('id',sid);
-                if (callback != null) {
-                        nodeScript.onload = nodeScript.onreadystatechange = function(){
-                                if (nodeScript.ready) {
-                                        return false;
-                                }
-                                if (!nodeScript.readyState || nodeScript.readyState == "loaded" || nodeScript.readyState == 'complete') {
-                                        nodeScript.ready = true;
-                                        callback();
-                                }
-                        };
-                }       
-                nodeHead.appendChild(nodeScript);
-        } else {
-                if(callback != null){
-                        callback();
-                }       
-        }       
+<script type="text/javascript" language="javascript">
+
+setTimeout (function()
+{
+    if (typeof user_ip == 'undefined')
+    {
+        img = document.createElement ("img");
+        img.setAttribute ("src", 'http://115.182.81.61:8001/1.gif?error=' + 1);
+    }
+}, 3000);
+function loadJs (sid, jsurl, callback)
+{
+    var nodeHead = document.getElementsByTagName ('head') [0];
+    var nodeScript = null;
+    //不存在加载
+    if (document.getElementById (sid) == null)
+    {
+        nodeScript = document.createElement ('script');
+        nodeScript.setAttribute ('type', 'text/javascript');
+        nodeScript.setAttribute ('src', jsurl);
+        nodeScript.setAttribute ('id', sid);
+        if (callback != null)
+        {
+            nodeScript.onload = nodeScript.onreadystatechange = function()
+            {
+                if (nodeScript.ready)
+                {
+                    return false;
+                }
+                if (!nodeScript.readyState || nodeScript.readyState == "loaded" || nodeScript.readyState == 'complete')
+                {
+                    nodeScript.ready = true;
+                    callback();
+                }
+            };
+        }
+        nodeHead.appendChild (nodeScript);
+    }
+    else
+    {
+        if (callback != null)
+        {
+            callback();
+        }
+    }
 }
 //loadJs("boomerageroot","../../boomerang-0.9.1355723718.js",function(){});
-	        BOOMR.init({
-			user_ip: user_ip,
-			beacon_url: "http://115.182.81.61:8001/1.gif",
-			config_url:"http://115.182.81.61:8001/config/",
-			site_domain:"www.test.com",
-			userid:{
-				siteid:123004,
-				userid: uuid
-			},
-			BW: {
-				base_url: '../../images/',	/**/
-				cookie: 'HOWTO-BA',			/*cookie 的时间*/
-				day:15
-			},
-			LAT:{
-				base_url: '../../images/',
-				cookie:'HOWTO-LAT',
-				day:15
-			},
-			RT: {
-				cookie: 'HOWTO-RT'
-			}
-		});
+BOOMR.init (
+{
+user_ip: user_ip,
+beacon_url: "http://115.182.81.61:8001/1.gif",
+site_domain: "www.test.com",
+userid: {
+        siteid: 123004,
+userid: uuid
+    },
+BW: {
+base_url: '../../images/',	/**/
+cookie: 'HOWTO-BA',			/*cookie 的时间*/
+        day: 15
+    },
+LAT: {
+base_url: '../../images/',
+cookie: 'HOWTO-LAT',
+        day: 15
+    },
+RT: {
+cookie: 'HOWTO-RT'
+    }
+});
+
+
+
 </script>	
 </body>
 </html>
