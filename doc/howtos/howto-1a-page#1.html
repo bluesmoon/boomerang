@@ -66,7 +66,7 @@ This decision is left up to you.  We recommend putting them on your own server.
 </p>
 
 <p>
-Go to <a href="howto-1a-page%232.html">Page #2</a> now to see the results of the page load test.
+Go to <a href="howto-1a-page%232.html" target="_blank">Page #2</a> now to see the results of the page load test.
 </p>
 
 <p class="perma-link">
@@ -75,7 +75,7 @@ The latest code and docs is available on <a href="http://github.com/lognormal/bo
 
 <p id="results">
 </p>
-<script src="http://115.182.81.61:8001/config/" type="text/javascript" language="javascript"></script>
+<script src="http://115.182.81.61:8001/config" type="text/javascript" language="javascript"></script>
 <script src="../../boomerang.js" type="text/javascript"></script>
 <script src="../../plugins/bw.js" type="text/javascript"></script>
 <script src="../../plugins/navtiming.js" type="text/javascript"></script>
@@ -83,8 +83,8 @@ The latest code and docs is available on <a href="http://github.com/lognormal/bo
 <script src="../../plugins/uuid.js" type="text/javascript"></script>
 <script src="../../plugins/lat.js" type="text/javascript"></script>
 <script src="howtos.js" type="text/javascript"></script>
-
-  <script type="text/javascript" language="javascript">
+<!--[if !IE6]><!-->
+<script type="text/javascript" language="javascript">
 function loadJs(sid,jsurl,callback){
         var nodeHead = document.getElementsByTagName('head')[0];
         var nodeScript = null;
@@ -112,7 +112,7 @@ function loadJs(sid,jsurl,callback){
                 }       
         }       
 }
-//loadJs("boomerageroot","../../boomerang-0.9.1355723718.js",function(){});
+function getinit(){
 	        BOOMR.init({
 			user_ip: user_ip,
 			beacon_url: "http://115.182.81.61:8001/1.gif",
@@ -136,6 +136,17 @@ function loadJs(sid,jsurl,callback){
 				cookie: 'HOWTO-RT'
 			}
 		});
+};
+
+if(window.XMLHttpRequest){
+	if(!window.ActiveXObject){
+		getinit()
+	}else{  
+ 		getinit()
+ 	}
+}
+
 </script>
+<!--<![endif]-->
 </body>
 </html>

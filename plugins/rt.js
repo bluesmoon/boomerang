@@ -197,6 +197,7 @@ var impl = {
 			// our unload handler won't fire, so we need to set our
 			// cookie on click
 			this.setCookie('cl');
+
 		}
 	},
 
@@ -230,8 +231,7 @@ BOOMR.plugins.RT = {
 		BOOMR.subscribe("page_ready", this.done, null, this);
 		BOOMR.subscribe("dom_loaded", impl.domloaded, null, impl);
 		BOOMR.subscribe("page_unload", impl.page_unload, null, impl);
-		BOOMR.subscribe("click", impl.onclick, null, impl);
-
+		BOOMR.subscribe("click", impl.page_unload, null, impl);
 		if(BOOMR.t_start) {
 			// How long does it take Boomerang to load up and execute
 			this.startTimer('boomerang', BOOMR.t_start);
@@ -306,9 +306,11 @@ BOOMR.plugins.RT = {
 			this.endTimer("t_resp", impl.responseStart);
 			if(impl.timers.t_load) {
 				this.setTimer("t_page", impl.timers.t_load.end - impl.responseStart);
+
 			}
 			else {
 				this.setTimer("t_page", t_done - impl.responseStart);
+
 			}
 		}
 		else if(impl.timers.hasOwnProperty('t_page')) {
@@ -318,6 +320,7 @@ BOOMR.plugins.RT = {
 		else if(impl.t_fb_approx) {
 			this.endTimer('t_resp', impl.t_fb_approx);
 			this.setTimer("t_page", t_done - impl.t_fb_approx);
+
 		}
 
 		// If a prerender timer was started, we can end it now as well
@@ -392,7 +395,6 @@ BOOMR.plugins.RT = {
 				BOOMR.addVar("t_other", t_other.join(','));
 			}
 		}
-
 		impl.timers = {};
 		impl.complete = true;
 
