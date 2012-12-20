@@ -35,18 +35,17 @@ var impl = {
 
 	setCookie: function(how) {
 		var t_end, t_start = new Date().getTime(), subcookies;
-
 		// Disable use of RT cookie by setting its name to a falsy value
 		if(!this.cookie) {
 			return this;
 		}
 
 		subcookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(this.cookie)) || {};
+
 		subcookies[how] = t_start
 		// We use document.URL instead of location.href because of a bug in safari 4
 		// where location.href is URL decoded
 		subcookies.r = d.URL.replace(/#.*/, '');
-
 		if(!BOOMR.utils.setCookie(this.cookie, subcookies, this.cookie_exp)) {
 			BOOMR.error("cannot set start cookie", "rt");
 			return this;
@@ -76,7 +75,6 @@ var impl = {
 		}
 
 		subcookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(this.cookie));
-
 		if(!subcookies) {
 			return;
 		}
@@ -197,7 +195,7 @@ var impl = {
 			// our unload handler won't fire, so we need to set our
 			// cookie on click
 			this.setCookie('cl');
-
+			this.setCookie('ul');/*when click A tag.will set this click time to cookies*/
 		}
 	},
 
@@ -218,7 +216,6 @@ BOOMR.plugins.RT = {
 
 		BOOMR.utils.pluginConfig(impl, config, "RT",
 					["cookie", "cookie_exp", "strict_referrer"]);
-
 		// if complete is already true
 		// then we've already collected t_done so no point running init
 		if(impl.complete) {
@@ -231,7 +228,7 @@ BOOMR.plugins.RT = {
 		BOOMR.subscribe("page_ready", this.done, null, this);
 		BOOMR.subscribe("dom_loaded", impl.domloaded, null, impl);
 		BOOMR.subscribe("page_unload", impl.page_unload, null, impl);
-		BOOMR.subscribe("click", impl.page_unload, null, impl);
+		BOOMR.subscribe("click", impl.onclick, null, impl);
 		if(BOOMR.t_start) {
 			// How long does it take Boomerang to load up and execute
 			this.startTimer('boomerang', BOOMR.t_start);
