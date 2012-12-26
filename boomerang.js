@@ -20,7 +20,12 @@ you, but we have a few ideas.
 // BOOMR function to download and execute before measuring the
 // time.  We also declare it without `var` so that we can later
 // `delete` it.  This is the only way that works on Internet Explorer
-BOOMR_start = new Date().getTime();
+
+/*if paraet window have the boomr_start value，use parent windows's boomr_start value*/
+if(typeof window.parent.BOOMR_start ==="undefined")
+    BOOMR_start = new Date().getTime();
+else
+    BOOMR_start = window.parent.BOOMR_start;
 
 // beaconing section
 // the parameter is the window
@@ -71,6 +76,7 @@ BOOMR_start = new Date().getTime();
             "dom_loaded" : [],
             "visibility_changed" : [],
             "before_beacon" : [],
+            "xhr_load" : [],
             "click" : []
         },
         
