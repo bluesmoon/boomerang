@@ -26,7 +26,6 @@ if(typeof window.parent.BOOMR_start ==="undefined")
     BOOMR_start = new Date().getTime();
 else
     BOOMR_start = window.parent.BOOMR_start;
-
 // beaconing section
 // the parameter is the window
 (function (w) {
@@ -134,34 +133,15 @@ else
         
         // Utility functions
         utils : {
-            LoadJs : function loadJs(sid, jsurl, callback) {
-                var nodeHead = document.getElementsByTagName('head')[0];
-                var nodeScript = null;
-                //不存在加载
-                if (document.getElementById(sid) == null) {
-                    nodeScript = document.createElement('script');
-                    nodeScript.setAttribute('type', 'text/javascript');
-                    nodeScript.setAttribute('src', jsurl);
-                    nodeScript.setAttribute('id', sid);
-                    if (callback != null) {
-                        nodeScript.onload = nodeScript.onreadystatechange = function () {
-                            if (nodeScript.ready) {
-                                return false;
-                            }
-                            if (!nodeScript.readyState || nodeScript.readyState == "loaded" || nodeScript.readyState == 'complete') {
-                                nodeScript.ready = true;
-                                callback();
-                            }
-                        };
-                    }
-                    nodeHead.appendChild(nodeScript);
-                } else {
-                    if (callback != null) {
-                        callback();
-                    }
-                }
-            },
-            
+            /*得到服务器的配置文件*/ 
+            getConfig:function(configURL){
+                var xmlhttp;
+                xmlhttp =new XMLHttpRequest();
+                xmlhttp.open("GET",configURL,false);/*do not use rsync*/
+                xmlhttp.send();
+                BOOMR.configinfo=eval('('+xmlhttp.responseText+')');
+                return eval('('+xmlhttp.responseText+')');
+            },    
             getCookie : function (name) {
                 if (!name) {
                     return null;

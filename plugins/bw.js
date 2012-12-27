@@ -424,13 +424,26 @@ var impl = {
 BOOMR.plugins.BW = {
 	init: function(config) {
 		var cookies;
-
 		if(impl.complete) {
 			return this;
 		}
+		/*若并没有附值IP,则使用AJAX请求取得IP地址及UUID*/
+		if(typeof BOOMR.configinfo =="undefined")
+			BOOMR.utils.getConfig(config.config_url);
+
+		impl.user_ip = BOOMR.configinfo.user_ip;
 
 		BOOMR.utils.pluginConfig(impl, config, "BW",
 						["base_url", "timeout", "nruns", "cookie", "cookie_exp","day"]);
+
+		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
+		/*若服务器返回不侦测带宽或者是已经探测，则不做探测工作*/
+		if(!BOOMR.configinfo.BW_enabled || cookies){
+//			BOOMR.utils.setCookie(impl.cookie,{enabled:false},7*3600*1000);
+			impl.complete = true;
+			return this;
+
+		}
 		if(config && config.user_ip) {
 			impl.user_ip = config.user_ip;
 		}
@@ -452,11 +465,7 @@ BOOMR.plugins.BW = {
 
 		BOOMR.removeVar('ba', 'ba_err');
 
-		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
-		if(cookies){
-			impl.complete = true;
-			return this;
-		}
+
 		if(!cookies || !cookies.ba || !impl.setVarsFromCookie(cookies)) {
 			BOOMR.subscribe("page_ready", this.run, null, this);
 			BOOMR.subscribe("page_unload", this.skip, null, this);
