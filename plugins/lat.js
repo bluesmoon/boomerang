@@ -308,10 +308,8 @@ var impl = {
 BOOMR.plugins.LAT = {
 	init: function(config) {
 		var cookies;
-		if(typeof BOOMR.configinfo =="undefined")
-			BOOMR.utils.getConfig(config.config_url);
 
-		impl.user_ip = BOOMR.configinfo.user_ip;
+		impl.user_ip = user_ip;
 		
 		if(impl.complete) {
 			return this;

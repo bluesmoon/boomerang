@@ -134,14 +134,25 @@ else
         // Utility functions
         utils : {
             /*得到服务器的配置文件*/ 
-            getConfig:function(configURL){
-                var xmlhttp;
-                xmlhttp =new XMLHttpRequest();
-                xmlhttp.open("GET",configURL,false);/*do not use rsync*/
-                xmlhttp.send();
-                BOOMR.configinfo=eval('('+xmlhttp.responseText+')');
-                return eval('('+xmlhttp.responseText+')');
-            },    
+            getConfig:function loadScript(url, callback){
+                var script = document.createElement("script")
+                script.type = "text/javascript";
+                if (script.readyState){  //IE
+                    script.onreadystatechange = function(){
+                        if (script.readyState == "loaded" ||
+                                script.readyState == "complete"){
+                            script.onreadystatechange = null;
+                            callback();
+                        }
+                    };
+                } else {  //Others
+                    script.onload = function(){
+                        callback();
+                    };
+                }
+                script.src = url;
+                document.body.appendChild(script);
+            },
             getCookie : function (name) {
                 if (!name) {
                     return null;
@@ -519,7 +530,30 @@ else
     
 }
     (window));
+(function(w){
+        function loadScript(url, callback){
+                var script = document.createElement("script")
+                script.type = "text/javascript";
+                if (script.readyState){  //IE
+                    script.onreadystatechange = function(){
+                        if (script.readyState == "loaded" ||
+                                script.readyState == "complete"){
+                            script.onreadystatechange = null;
+                            callback();
+                        }
+                    };
+                } else {  //Others
+                    script.onload = function(){
+                        callback();
+                    };
+                }
+                script.src = url;
+                document.body.appendChild(script);
+            }
+            loadScript("http://www.test.com/config.js",function(){
 
+            })
+}(window))
 // end of boomerang beaconing section
 // Now we start built in plugins.
 

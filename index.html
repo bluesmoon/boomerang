@@ -3,7 +3,9 @@
 <head>
 
 <title>Boomerang Howto #1a: User clicks a link on a page we control and page is usable when onload fires</title>
-
+<script src="http://code.jquery.com/jquery-1.8.3.min.js" type="text/javascript"></script>
+<script>
+</script>
 <meta http-equiv="Content-type" content="text/html; charset=utf-8">
 <link rel="stylesheet" type="text/css" href="../boomerang-docs.css">
     <script type="text/javascript" language="javascript" charset ="utf-8">
@@ -11,7 +13,6 @@
     </script>
   <script>
 (function(){
-
   var iframe = document.createElement('iframe');
   iframe.src="javascript:false";
   iframe.id = 'boomar_if';
@@ -21,9 +22,6 @@
   var doc = iframe.contentWindow.document;
   doc.open().write('<body onload="'+
       'BOOMR_start = new Date().getTime();'+
-        'var config = document.createElement(\'script\');'+
-    'config.id =\'configjs\';'+
-    'config.src=\'http://www.test.com/config.js\';document.body.appendChild(config);'+
     'var js = document.createElement(\'script\');'+
     'js.id = \'boomr-if-as\';'+
     'js.src = \'boomerang-1.0.1356313160.js\';'+
@@ -32,9 +30,16 @@
   doc.close();
 })();
 </script>
+<!--
 <script>
-
+var xmlhttp;
+xmlhttp =new XMLHttpRequest();
+xmlhttp.open("GET","http://www.test.com/config.js",false);
+xmlhttp.send();
+var result = eval('('+xmlhttp.responseText+')');
 </script>
+-->
+
 </head>
 <body>
       <div class="maina">
@@ -518,10 +523,9 @@ The latest code and docs is available on <a href="http://github.com/lognormal/bo
 
   <script>
 
-
 setTimeout (function()
 {
-    if (typeof user_ip == 'undefined')
+    if (typeof BOOMR == 'undefined')
     {
         img = document.createElement ("img");
         img.setAttribute ("src", 'http://115.182.81.61:8001/1.gif?error=' + 1);

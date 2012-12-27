@@ -54,9 +54,7 @@ var impl = {
 
 BOOMR.plugins.uuid = {
 	init: function(config) {
-		if(typeof BOOMR.configinfo =="undefined")
-			BOOMR.utils.getConfig(config.config_url);
-		impl.userid = BOOMR.configinfo.uuid;
+		impl.userid = uuid;
 		var i, properties = ["siteid"];
 		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
 		/*若没有在cookies中读取到用户的数据，生成新的数据，若有，直接获取cookies中的信息*/
