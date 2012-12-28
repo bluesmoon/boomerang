@@ -106,10 +106,13 @@ else
             }
             
             e = this.events[e_name];
-            
             for (i = 0; i < e.length; i++) {
                 h = e[i];
+                try{
                 h[0].call(h[2], data, h[1]);
+                }catch(e){
+                    console.log(e);
+                }
             }
             
             return true;
@@ -134,7 +137,7 @@ else
         // Utility functions
         utils : {
             /*得到服务器的配置文件*/ 
-            getConfig:function loadScript(url, callback){
+            getConfig: function(url,obj, callback){
                 var script = document.createElement("script")
                 script.type = "text/javascript";
                 if (script.readyState){  //IE
@@ -147,7 +150,7 @@ else
                     };
                 } else {  //Others
                     script.onload = function(){
-                        callback();
+                        callback(obj);
                     };
                 }
                 script.src = url;
@@ -278,8 +281,9 @@ else
             if (!this.log) {
                 this.log = function (m, l, s) {};
             }
-            
-            for (k in this.plugins) {
+            /*当读取完成IP文件。才给插件运行*/
+            this.utils.getConfig(config.config_url,this,function(obj){
+            for (k in obj.plugins) {
                 // config[pugin].enabled has been set to false
                 if (config[k]
                      && ("enabled" in config[k])
@@ -289,17 +293,20 @@ else
                 } else if (impl.disabled_plugins[k]) {
                     delete impl.disabled_plugins[k];
                 }
-                
                 // plugin exists and has an init method
-                if (this.plugins.hasOwnProperty(k)
-                     && typeof this.plugins[k].init === "function") {
-                    this.plugins[k].init(config);
+
+                    if (obj.plugins.hasOwnProperty(k)
+                     && typeof obj.plugins[k].init === "function") {
+                    obj.plugins[k].init(config);
                 }
+
+
             }
-            
+            });
             // The developer can override onload by setting autorun to false
             if (!("autorun" in config) || config.autorun !== false) {
                 if ("onpagehide" in w) {
+
                     impl.addListener(w, "pageshow", BOOMR.page_ready);
                 } else {
                     impl.addListener(w, "load", BOOMR.page_ready);
@@ -530,30 +537,6 @@ else
     
 }
     (window));
-(function(w){
-        function loadScript(url, callback){
-                var script = document.createElement("script")
-                script.type = "text/javascript";
-                if (script.readyState){  //IE
-                    script.onreadystatechange = function(){
-                        if (script.readyState == "loaded" ||
-                                script.readyState == "complete"){
-                            script.onreadystatechange = null;
-                            callback();
-                        }
-                    };
-                } else {  //Others
-                    script.onload = function(){
-                        callback();
-                    };
-                }
-                script.src = url;
-                document.body.appendChild(script);
-            }
-            loadScript("http://www.test.com/config.js",function(){
-
-            })
-}(window))
 // end of boomerang beaconing section
 // Now we start built in plugins.
 

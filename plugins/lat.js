@@ -307,7 +307,7 @@ var impl = {
 
 BOOMR.plugins.LAT = {
 	init: function(config) {
-		var cookies;
+	var cookies;
 
 		impl.user_ip = user_ip;
 		
@@ -358,6 +358,8 @@ BOOMR.plugins.LAT = {
 		}
 
 		return this;
+
+	
 	},
 
 	run: function() {

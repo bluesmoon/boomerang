@@ -422,13 +422,14 @@ var impl = {
 };
 
 BOOMR.plugins.BW = {
-	doInit:function(config){
+	init: function(config) {
 		var cookies;
 		impl.user_ip = user_ip;
 		BOOMR.utils.pluginConfig(impl, config, "BW",
 						["base_url", "timeout", "nruns", "cookie", "cookie_exp","day"]);
 		cookies = BOOMR.utils.getSubCookies(BOOMR.utils.getCookie(impl.cookie));
 		/*若服务器返回不侦测带宽或者是已经探测，则不做探测工作*/
+
 		if(!BW_enabled || cookies){
 //			BOOMR.utils.setCookie(impl.cookie,{enabled:false},7*3600*1000);
 			impl.complete = true;
@@ -445,6 +446,7 @@ BOOMR.plugins.BW = {
 		if(impl.day){
 			impl.cookie_exp = impl.day*86400;
 		}
+
 		images.start = 0;
 		impl.runs_left = impl.nruns;
 		impl.latency_runs = 10;
@@ -463,16 +465,6 @@ BOOMR.plugins.BW = {
 		}
 
 		return this;
-	},
-	init: function(config) {
-		if(impl.complete) {
-			return this;
-		}
-		
-		this.doInit(config);;
-		/*若并没有附值IP,则使用AJAX请求取得IP地址及UUID*/
-		if(typeof user_ip =="undefined")
-			BOOMR.utils.getConfig(config.base_url,this.doInit(config));
 
 	},
 
