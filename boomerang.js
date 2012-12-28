@@ -145,7 +145,7 @@ else
                         if (script.readyState == "loaded" ||
                                 script.readyState == "complete"){
                             script.onreadystatechange = null;
-                            callback();
+                            callback(obj);
                         }
                     };
                 } else {  //Others
