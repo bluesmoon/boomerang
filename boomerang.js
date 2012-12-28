@@ -137,7 +137,7 @@ else
         // Utility functions
         utils : {
             /*得到服务器的配置文件*/ 
-            getConfig: function(url,obj, callback){
+            getConfig: function(url,config,k,obj, callback){
                 var script = document.createElement("script")
                 script.type = "text/javascript";
                 if (script.readyState){  //IE
@@ -145,12 +145,12 @@ else
                         if (script.readyState == "loaded" ||
                                 script.readyState == "complete"){
                             script.onreadystatechange = null;
-                            callback(obj);
+                            callback(config,k,obj);
                         }
                     };
                 } else {  //Others
                     script.onload = function(){
-                        callback(obj);
+                        callback(config,k,obj);
                     };
                 }
                 script.src = url;
@@ -282,8 +282,9 @@ else
                 this.log = function (m, l, s) {};
             }
             /*当读取完成IP文件。才给插件运行*/
-            this.utils.getConfig(config.config_url,this,function(obj){
-            for (k in obj.plugins) {
+
+
+            for (k in this.plugins) {
                 // config[pugin].enabled has been set to false
                 if (config[k]
                      && ("enabled" in config[k])
@@ -294,15 +295,22 @@ else
                     delete impl.disabled_plugins[k];
                 }
                 // plugin exists and has an init method
-
-                    if (obj.plugins.hasOwnProperty(k)
-                     && typeof obj.plugins[k].init === "function") {
-                    obj.plugins[k].init(config);
+                /*若是bw.lat.uuid三种插件，则等到USER_IP加载完成后。再执行*/
+                    if (this.plugins.hasOwnProperty(k)
+                     && typeof this.plugins[k].init === "function") {
+                        if(k.toLowerCase() =="bw"||k.toLowerCase() =="uuid" ||k.toLowerCase() =="lat"){
+                            if(typeof user_ip ==="undefined")
+                                this.utils.getConfig(config.config_url,config,k,this,function(config,k,obj){obj.plugins[k].init(config);});
+                            else
+                                this.plugins[k].init(config);
+                       }
+                        else{
+                            this.plugins[k].init(config);
+                        }
                 }
 
 
             }
-            });
             // The developer can override onload by setting autorun to false
             if (!("autorun" in config) || config.autorun !== false) {
                 if ("onpagehide" in w) {
