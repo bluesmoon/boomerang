@@ -26,7 +26,6 @@ function include_js(url) {
 		LAT:{
 			base_url: '../../images/',
 			cookie:'LAT',
-			timeout:3500,
 			day:15
 		},
 		RT: {
