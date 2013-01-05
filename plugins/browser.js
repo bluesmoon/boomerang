@@ -1,13 +1,7 @@
 /**
-\file plugin.js
-Skeleton template for all boomerang plugins.  Use this code as a starting point for your
-own plugins.
+ * this javascript design by http://www.quirksmode.org/js/detect.html
+ * 
 */
-
-//////////////////////////////////////////////////////////
-//    DO NOT INCLUDE THIS FILE IN YOUR HTML DOCUMENT    //
-//               THIS IS A SAMPLE PLUGIN                //
-//////////////////////////////////////////////////////////
 
 // w is the window object
 (function(w) {
@@ -49,11 +43,12 @@ var impl = {
 		if (index == -1) return;
 		return parseFloat(dataString.substring(index+this.versionSearchString.length+1));
 	},
+	/*If you want add new browser or other system,can use this type into this array.*/
 	dataBrowser: [
 		{
-			string: navigator.userAgent,
-			subString: "Chrome",
-			identity: "Chrome"
+			string: navigator.userAgent,   	/*String from by this*/
+			subString: "Chrome",			/*use this String to find*/
+			identity: "Chrome"				/*return result*/
 		},
 		{ 	string: navigator.userAgent,
 			subString: "OmniWeb",
