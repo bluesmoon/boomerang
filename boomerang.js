@@ -109,7 +109,7 @@ else
             for (i = 0; i < e.length; i++) {
                 h = e[i];
                 try{
-                h[0].call(h[2], data, h[1]);
+                 h[0].call(h[2], data, h[1]);
                 }catch(e){
                     console.log(e);
                 }
@@ -295,18 +295,9 @@ else
                     delete impl.disabled_plugins[k];
                 }
                 // plugin exists and has an init method
-                /*若是bw.lat.uuid三种插件，则等到USER_IP加载完成后。再执行*/
                     if (this.plugins.hasOwnProperty(k)
                      && typeof this.plugins[k].init === "function") {
-                        if(k.toLowerCase() =="bw"||k.toLowerCase() =="uuid" ||k.toLowerCase() =="lat"){
-                            if(typeof user_ip ==="undefined")
-                                this.utils.getConfig(config.config_url,config,k,this,function(config,k,obj){obj.plugins[k].init(config);});
-                            else
-                                this.plugins[k].init(config);
-                       }
-                        else{
                             this.plugins[k].init(config);
-                        }
                 }
 
 

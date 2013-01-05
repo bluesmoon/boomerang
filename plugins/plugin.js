@@ -22,6 +22,7 @@ BOOMR.plugins = BOOMR.plugins || {};
 // A private object to encapsulate all your implementation details
 // This is optional, but the way we recommend you do it.
 var impl = {
+	
 };
 
 BOOMR.plugins.MyPlugin = {
