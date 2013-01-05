@@ -2401,7 +2401,7 @@ var impl = {
     
 };
 
-BOOMR.plugins.MyPlugin = {
+BOOMR.plugins.browser = {
     init: function(config) {
     //  var i, properties = ["prop1", "prop2"]; // list of user configurable properties in O
     impl.init();

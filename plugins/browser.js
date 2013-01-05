@@ -135,11 +135,11 @@ var impl = {
 	
 };
 
-BOOMR.plugins.MyPlugin = {
+BOOMR.plugins.Browser = {
 	init: function(config) {
-	impl.init();/*run this plugs*/
+	impl.init();				/*run this plugs*/
 	BOOMR.addVar({
-		browser:impl.browser,  /*browser type*/
+		browser:impl.browser, 	/*browser type*/
 		version:impl.browser,	/*browser version*/
 		os:impl.os				/*user's system type*/
 	});
