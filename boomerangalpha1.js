@@ -738,7 +738,7 @@ var impl = {
             // our unload handler won't fire, so we need to set our
             // cookie on click
             this.setCookie('cl');
-            //this.setCookie('ul');/*when click A tag.will set this click time to cookies*/
+            this.setCookie('ul');/*when click A tag.will set this click time to cookies*/
         }
     },
 
@@ -888,9 +888,9 @@ BOOMR.plugins.RT = {
         // make sure old variables don't stick around
         BOOMR.removeVar('t_done', 't_page', 't_resp', 'r', 'r2', 'rt_tstart', 'rt_bstart', 'rt_end', 't_postrender', 't_prerender', 't_load');
 
-        BOOMR.addVar('rt_tstart', t_start);
+       // BOOMR.addVar('rt_tstart', t_start);
         //BOOMR.addVar('rt_bstart', BOOMR.t_start);
-        BOOMR.addVar('rt_end', impl.timers.t_done.end); // don't just use t_done because dev may have called endTimer before we did
+       // BOOMR.addVar('rt_end', impl.timers.t_done.end); // don't just use t_done because dev may have called endTimer before we did
 
         for(t_name in impl.timers) {
             if(!impl.timers.hasOwnProperty(t_name)) {
@@ -1940,7 +1940,7 @@ var impl = {
             pt = p.timing;
             data = {
             // nt_red_cnt: pn.redirectCount,
-                nt_nav_type: pn.type,
+//                nt_nav_type: pn.type,
                 //nt_nav_st: pt.navigationStart,
 //                nt_red_st: pt.redirectStart,
 //                nt_red_end: pt.redirectEnd,
@@ -1978,7 +1978,7 @@ var impl = {
             if(pt) {
                 data = {
                    // nt_spdy: (pt.wasFetchedViaSpdy?1:0),
-                    nt_first_paint: pt.firstPaintTime
+                    //nt_first_paint: pt.firstPaintTime
                 };
 
                 BOOMR.addVar(data);
