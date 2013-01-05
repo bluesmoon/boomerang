@@ -137,30 +137,19 @@ var impl = {
 
 BOOMR.plugins.MyPlugin = {
 	init: function(config) {
-	//	var i, properties = ["prop1", "prop2"];	// list of user configurable properties in O
-	impl.init();
+	impl.init();/*run this plugs*/
 	BOOMR.addVar({
-		browser:impl.browser,
-		version:impl.browser,
-		os:impl.os
-	}
-		);
-		// This block is only needed if you actually have user configurable properties
-//		BOOMR.utils.pluginConfig(impl, config, "MyPlugin", properties);
-		// Other initialisation code here
-		// Subscribe to any BOOMR events here.
-		// Unless your code will explicitly be called by the developer
-		// or by another plugin, you must to do this.
+		browser:impl.browser,  /*browser type*/
+		version:impl.browser,	/*browser version*/
+		os:impl.os				/*user's system type*/
+	});
 
 		return this;
 	},
 
-	// Any other public methods would be defined here
 
 	is_complete: function() {
 		return impl.complete; 
-		// This method should determine if the plugin has completed doing what it
-		/// needs to do and return true if so or false otherwise
 	}
 };
 
