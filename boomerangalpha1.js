@@ -1961,9 +1961,10 @@ var impl = {
 //                nt_load_end: pt.loadEventEnd,
 //                nt_unload_st: pt.unloadEventStart,
 //                nt_unload_end: pt.unloadEventEnd
+			
 				nt_interac : pt.domInteractive-pt.navigationStart,   	/*can interactive time*/
                 ttfb  : pt.responseStart-pt.navigationStart,		/*first byte time*/
-                nt_done  : pt.unloadEventEnd - pt.navigationStart	/*page time*/
+                nt_done  : pt.loadEventEnd - pt.navigationStart	/*page time*/
             };
             if (pt.secureConnectionStart) {
                 // secureConnectionStart is OPTIONAL in the spec
@@ -2381,6 +2382,11 @@ var impl = {
         },
         {
             string: navigator.platform,
+            subString: "Android",
+            identity: "android"
+        },
+        {
+            string: navigator.platform,
             subString: "Mac",
             identity: "Mac"
         },
@@ -2448,24 +2454,21 @@ var getinit =function(){
                 siteid:123004
             },
             BW: {
-                base_url: 'images/',  /**/
-                cookie: 'BA',         /*cookie 的时间*/
-                day:15,
-                disabled:true,
-                timeout:1000
+                base_url: 'images/', 
+                cookie: 'BA', 
+                day:15
             },
             LAT:{
                 base_url: 'images/',
                 cookie:'LAT',
-                day:15,
-                disabled:true
+                day:15
             },
             RT: {
                 cookie: 'RT'
             }
         });
 };
-if(window.XMLHttpRequest)
+if(window.XMLHttpRequest)  /*if user's browser is ie6,don't run this*/
     getinit();
 setTimeout (function()
 {
