@@ -916,7 +916,8 @@ BOOMR.plugins.RT = {
             }
 
             if(basic_timers.hasOwnProperty(t_name)) {
-                BOOMR.addVar(t_name, timer.delta);
+            	if(t_name !=="t_page")
+                	BOOMR.addVar(t_name, timer.delta);
             }
             else {
                 t_other.push(t_name + '|' + timer.delta);
@@ -2412,8 +2413,8 @@ BOOMR.plugins.browser = {
     //  var i, properties = ["prop1", "prop2"]; // list of user configurable properties in O
     impl.init();
     BOOMR.addVar({
-        browser:impl.browser,
-        version:impl.version,
+        bro_tp:impl.browser,
+        bro_ver:impl.version,
         os:impl.OS
     }
         );
