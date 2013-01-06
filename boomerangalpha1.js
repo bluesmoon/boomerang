@@ -181,7 +181,7 @@ else
                 c,
                 exp;
                 
-                if (!name) {
+               if(!name || !impl.site_domain) {
                     return false;
                 }
                 
@@ -302,12 +302,16 @@ else
 
             }
             // The developer can override onload by setting autorun to false
-            if (!("autorun" in config) || config.autorun !== false) {
-                if ("onpagehide" in w) {
-
-                    impl.addListener(w, "pageshow", BOOMR.page_ready);
-                } else {
-                    impl.addListener(w, "load", BOOMR.page_ready);
+           if(!impl.onloadfired && (!("autorun" in config) || config.autorun !== false)) {
+			 if(d.readyState && d.readyState === "complete") {
+       				this.setImmediate(BOOMR.page_ready, null, null, BOOMR);	
+       			}else{
+                   if("onpagehide" in w) {
+          				impl.addListener(w, "pageshow", BOOMR.page_ready);
+       				}
+        			else {
+          				impl.addListener(w, "load", BOOMR.page_ready);
+        			}
                 }
             }
             
@@ -347,10 +351,35 @@ else
         // The page dev calls this method when they determine the page is usable.
         // Only call this if autorun is explicitly set to false
         page_ready : function () {
+        	if(impl.onloadfired) {
+            	return this;
+        	}
             impl.fireEvent("page_ready");
+            impl.onloadfired = true;
             return this;
         },
-        
+        setImmediate: function(fn, data, cb_data, cb_scope) {
+			var cb = function() {
+				fn.call(cb_scope || null, data, cb_data || {});
+				cb=null;
+			};
+	
+			if(w.setImmediate) {
+				w.setImmediate(cb);
+			}
+			else if(w.msSetImmediate) {
+				w.msSetImmediate(cb);
+			}
+			else if(w.webkitSetImmediate) {
+				w.webkitSetImmediate(cb);
+			}
+			else if(w.mozSetImmediate) {
+				w.mozSetImmediate(cb);
+			}
+			else {
+				setTimeout(cb, 50);
+			}
+		},
         subscribe : function (e_name, fn, cb_data, cb_scope) {
             var i,
             h,
@@ -370,7 +399,11 @@ else
                 }
             }
             e.push([fn, cb_data || {}, cb_scope || null]);
-            
+            if(e_name == 'page_ready' && impl.onloadfired) {
+      				setTimeout(function() {
+          			fn.call(cb_scope || null, null, cb_data || {});
+        		}, 50);
+   		 	}
             // Attach unload handlers directly to the window.onunload and
             // window.onbeforeunload events. The first of the two to fire will clear
             // fn so that the second doesn't fire. We do this because technically
@@ -737,6 +770,7 @@ var impl = {
             // if this page is being opened in a different tab, then
             // our unload handler won't fire, so we need to set our
             // cookie on click
+            this.setCookie('hd');
             this.setCookie('cl');
             this.setCookie('ul');/*when click A tag.will set this click time to cookies*/
         }
@@ -916,7 +950,7 @@ BOOMR.plugins.RT = {
             }
 
             if(basic_timers.hasOwnProperty(t_name)) {
-            	if(t_name !=="t_page")
+            	if(t_name ==="t_done")
                 	BOOMR.addVar(t_name, timer.delta);
             }
             else {
@@ -927,10 +961,9 @@ BOOMR.plugins.RT = {
 
         if(ntimers) {
             BOOMR.addVar("r", impl.r);
-
-            if(impl.r2 !== impl.r) {
+            if(impl.r2 !== impl.r) 
                 BOOMR.addVar("r2", impl.r2);
-            }
+     
 //
 //            if(t_other.length) {
 //                BOOMR.addVar("t_other", t_other.join(','));
@@ -2382,9 +2415,9 @@ var impl = {
             identity: "Windows 7"
         },
         {
-            string: navigator.platform,
+            string: navigator.userAgent,
             subString: "Android",
-            identity: "android"
+            identity: "Android"
         },
         {
             string: navigator.platform,
