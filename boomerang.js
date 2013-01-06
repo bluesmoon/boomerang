@@ -400,7 +400,7 @@ else
                 }
             }
             e.push([fn, cb_data || {}, cb_scope || null]);
-            
+            // attaching to page_ready after onload fires, so call soon
              if(e_name == 'page_ready' && impl.onloadfired) {
       				setTimeout(function() {
           			fn.call(cb_scope || null, null, cb_data || {});
