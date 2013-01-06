@@ -182,7 +182,7 @@ else
                 c,
                 exp;
                 
-                if (!name) {
+                if (!name || !impl.site_domain) {
                     return false;
                 }
                 
@@ -303,12 +303,16 @@ else
 
             }
             // The developer can override onload by setting autorun to false
-            if (!("autorun" in config) || config.autorun !== false) {
-                if ("onpagehide" in w) {
-
-                    impl.addListener(w, "pageshow", BOOMR.page_ready);
-                } else {
-                    impl.addListener(w, "load", BOOMR.page_ready);
+           if(!impl.onloadfired && (!("autorun" in config) || config.autorun !== false)) {
+			 if(d.readyState && d.readyState === "complete") {
+       				this.setImmediate(BOOMR.page_ready, null, null, BOOMR);	
+       			}else{
+                   if("onpagehide" in w) {
+          				impl.addListener(w, "pageshow", BOOMR.page_ready);
+       				}
+        			else {
+          				impl.addListener(w, "load", BOOMR.page_ready);
+        			}
                 }
             }
             
@@ -348,10 +352,35 @@ else
         // The page dev calls this method when they determine the page is usable.
         // Only call this if autorun is explicitly set to false
         page_ready : function () {
+        	if(impl.onloadfired) {
+      			return this;
+    		}
             impl.fireEvent("page_ready");
+            impl.onloadfired = true;
             return this;
         },
-        
+        setImmediate: function(fn, data, cb_data, cb_scope) {
+			var cb = function() {
+				fn.call(cb_scope || null, data, cb_data || {});
+				cb=null;
+			};
+	
+			if(w.setImmediate) {
+				w.setImmediate(cb);
+			}
+			else if(w.msSetImmediate) {
+				w.msSetImmediate(cb);
+			}
+			else if(w.webkitSetImmediate) {
+				w.webkitSetImmediate(cb);
+			}
+			else if(w.mozSetImmediate) {
+				w.mozSetImmediate(cb);
+			}
+			else {
+				setTimeout(cb, 50);
+			}
+		},
         subscribe : function (e_name, fn, cb_data, cb_scope) {
             var i,
             h,
@@ -371,6 +400,12 @@ else
                 }
             }
             e.push([fn, cb_data || {}, cb_scope || null]);
+            
+             if(e_name == 'page_ready' && impl.onloadfired) {
+      				setTimeout(function() {
+          			fn.call(cb_scope || null, null, cb_data || {});
+        		}, 50);
+   		 	}
             
             // Attach unload handlers directly to the window.onunload and
             // window.onbeforeunload events. The first of the two to fire will clear
