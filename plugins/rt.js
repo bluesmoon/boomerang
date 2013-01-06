@@ -194,6 +194,7 @@ var impl = {
 			// if this page is being opened in a different tab, then
 			// our unload handler won't fire, so we need to set our
 			// cookie on click
+			this.setCookie("hd");
 			this.setCookie('cl');
 			this.setCookie('ul');/*when click A tag.will set this click time to cookies*/
 		}
@@ -373,7 +374,7 @@ BOOMR.plugins.RT = {
 			}
 
 			if(basic_timers.hasOwnProperty(t_name)) {
-				BOOMR.addVar(t_name, timer.delta);
+					BOOMR.addVar(t_name, timer.delta);
 			}
 			else {
 				t_other.push(t_name + '|' + timer.delta);
