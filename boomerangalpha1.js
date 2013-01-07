@@ -1975,7 +1975,7 @@ var impl = {
             data = {
             // nt_red_cnt: pn.redirectCount,
 //                nt_nav_type: pn.type,
-                //nt_nav_st: pt.navigationStart,
+//				  nt_nav_st: pt.navigationStart,
 //                nt_red_st: pt.redirectStart,
 //                nt_red_end: pt.redirectEnd,
 //                nt_fet_st: pt.fetchStart,
@@ -1988,17 +1988,16 @@ var impl = {
 //                nt_res_end: pt.responseEnd,
 //                nt_domloading: pt.domLoading,
 //                nt_domint: pt.domInteractive,
-//               nt_domcontloaded_st: pt.domContentLoadedEventStart,
-//               nt_domcontloaded_end: pt.domContentLoadedEventEnd,
+//                nt_domcontloaded_st: pt.domContentLoadedEventStart,
+//                nt_domcontloaded_end: pt.domContentLoadedEventEnd,
 //                nt_domcomp: pt.domComplete,
 //                nt_load_st: pt.loadEventStart,
 //                nt_load_end: pt.loadEventEnd,
 //                nt_unload_st: pt.unloadEventStart,
 //                nt_unload_end: pt.unloadEventEnd
-			
+			 	ttfb  : pt.responseStart-pt.navigationStart,			/*first byte time*/
 				nt_interac : pt.domInteractive-pt.navigationStart,   	/*can interactive time*/
-                ttfb  : pt.responseStart-pt.navigationStart,		/*first byte time*/
-                nt_done  : pt.loadEventEnd - pt.navigationStart	/*page time*/
+                nt_done  : pt.loadEventEnd - pt.navigationStart			/*page time*/
             };
             if (pt.secureConnectionStart) {
                 // secureConnectionStart is OPTIONAL in the spec
