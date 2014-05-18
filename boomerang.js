@@ -82,7 +82,7 @@ BOOMR_check_doc_domain();
 // the parameter is the window
 (function(w) {
 
-var impl, boomr, d, myurl, createCustomEvent;
+var impl, boomr, d, myurl, createCustomEvent, cachedFrames;
 
 // This is the only block where we use document without the w. qualifier
 if(w.parent !== w
@@ -528,23 +528,27 @@ boomr = {
 		},
 
 		getFrames: function () {
-			var i, frame,
+			var i, frame, count;
+
+			// may be called more than once
+			if (!cachedFrames) {
 				count = frames.length,
-				result = new Array(count);
+				cachedFrames = new Array(count);
 
-			for (i = 0; i < count; ++i) {
-				try {
-					frame = frames[i];
+				for (i = 0; i < count; ++i) {
+					try {
+						frame = frames[i];
 
-					result[i] = {
-						url: frame.document.url,
-						frame: frame
-					};
-				} catch (e) {
+						cachedFrames[i] = {
+							url: frame.document.url,
+							frame: frame
+						};
+					} catch (e) {
+					}
 				}
 			}
 
-			return result;
+			return cachedFrames;
 		}
 	},
 
