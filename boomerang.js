@@ -527,27 +527,27 @@ boomr = {
 			form.submit();
 		},
 
-		forEachFrame: function (action, key) {
+		forEachFrame: function(action, key) {
 			var i, j, frame,
 				count = frames.length;
 
-			if (count > 0) {
-				if (!impl.vars.frames) {
+			if(count > 0) {
+				if(!impl.vars.frames) {
 					impl.vars.frames = [];
 				}
 
-				for (i = 0, j = 0; i < count; ++i) {
+				for(i = 0, j = 0; i < count; ++i) {
 					try {
 						frame = frames[i];
 
-						if (impl.vars.frames.length === j) {
+						if(impl.vars.frames.length === j) {
 							impl.vars.frames[j] = {
 								url: frame.document.url
 							};
 						}
 
 						impl.vars.frames[j++][key] = action(frame);
-					} catch (e) {
+					} catch(e) {
 						BOOMR.debug("Exception thrown from forEachFrame [" + i + "]: " + e.message);
 					}
 				}
