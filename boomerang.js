@@ -82,7 +82,7 @@ BOOMR_check_doc_domain();
 // the parameter is the window
 (function(w) {
 
-var impl, boomr, d, myurl, createCustomEvent, cachedFrames;
+var impl, boomr, d, myurl, createCustomEvent;
 
 // This is the only block where we use document without the w. qualifier
 if(w.parent !== w
