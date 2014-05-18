@@ -525,6 +525,26 @@ boomr = {
 			});
 
 			form.submit();
+		},
+
+		getFrames: function () {
+			var i, frame,
+				count = frames.length,
+				result = new Array(count);
+
+			for (i = 0; i < count; ++i) {
+				try {
+					frame = frames[i];
+
+					result[i] = {
+						url: frame.document.url,
+						frame: frame
+					};
+				} catch (e) {
+				}
+			}
+
+			return result;
 		}
 	},
 
