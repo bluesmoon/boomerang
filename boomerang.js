@@ -527,28 +527,31 @@ boomr = {
 			form.submit();
 		},
 
-		getFrames: function () {
-			var i, frame, count;
+		forEachFrame: function (action, key) {
+			var i, j, frame,
+				count = frames.length;
 
-			// may be called more than once
-			if (!cachedFrames) {
-				count = frames.length,
-				cachedFrames = new Array(count);
+			if (count > 0) {
+				if (!impl.vars.frames) {
+					impl.vars.frames = [];
+				}
 
-				for (i = 0; i < count; ++i) {
+				for (i = 0, j = 0; i < count; ++i) {
 					try {
 						frame = frames[i];
 
-						cachedFrames[i] = {
-							url: frame.document.url,
-							frame: frame
-						};
+						if (impl.vars.frames.length === j) {
+							impl.vars.frames[j] = {
+								url: frame.document.url
+							};
+						}
+
+						impl.vars.frames[j++][key] = action(frame);
 					} catch (e) {
+						BOOMR.debug("Exception thrown from forEachFrame [" + i + "]: " + e.message);
 					}
 				}
 			}
-
-			return cachedFrames;
 		}
 	},
 
