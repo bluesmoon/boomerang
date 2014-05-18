@@ -22,30 +22,34 @@ var restricted = {
 	responseStart: "rt_res_st"
 },
 
-mapData = function (data) {
+mapData = function(data) {
 	var resource, mapped, i, k;
 
-	if(data && typeof data.getEntriesByType === "function") {
-		resource = data.getEntriesByType("resource");
+	if(!data || typeof data.getEntriesByType !== "function") {
+		return;
+	}
 
-		if(r) {
-			mapped = new Array(resource.length);
+	resource = data.getEntriesByType("resource");
 
-			for(i = 0; i < resource.length; ++i) {
-				mapped[i] = {
-					rt_name: resource[i].name,
-					rt_in_type: resource[i].initiatorType,
-					rt_st: resource[i].startTime,
-					rt_dur: resource[i].duration,
-					rt_fet_st: resource[i].fetchStart,
-					rt_res_end: resource[i].responseEnd
-				};
+	if(!resource) {
+		return;
+	}
 
-				for(k in restricted) {
-					if(restricted.hasOwnProperty(k) && resource[i][k] > 0) {
-						mapped[i][restricted[k]] = resource[i][k];
-					}
-				}
+	mapped = new Array(resource.length);
+
+	for(i = 0; i < resource.length; ++i) {
+		mapped[i] = {
+			rt_name: resource[i].name,
+			rt_in_type: resource[i].initiatorType,
+			rt_st: resource[i].startTime,
+			rt_dur: resource[i].duration,
+			rt_fet_st: resource[i].fetchStart,
+			rt_res_end: resource[i].responseEnd
+		};
+
+		for(k in restricted) {
+			if(restricted.hasOwnProperty(k) && resource[i][k] > 0) {
+				mapped[i][restricted[k]] = resource[i][k];
 			}
 		}
 	}
@@ -65,7 +69,7 @@ impl = {
 		BOOMR.removeVar("restiming");
 
 		data = mapData(BOOMR.window.performance);
-		if (data) {
+		if(data) {
 			BOOMR.info("Client supports Resource Timing API", "restiming");
 
 			BOOMR.addVar({ restiming: data });
