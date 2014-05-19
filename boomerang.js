@@ -542,7 +542,7 @@ boomr = {
 
 						if(impl.vars.frames.length === j) {
 							impl.vars.frames[j] = {
-								url: frame.document.url
+								u: frame.document.url
 							};
 						}
 
