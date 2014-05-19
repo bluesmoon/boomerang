@@ -67,7 +67,7 @@ var mapData = function(data) {
 	return mapped;
 },
 
-mapChromeData: function(data) {
+mapChromeData = function(data) {
 	if(!data || !data.loadTimes) {
 		return;
 	}
@@ -86,7 +86,7 @@ mapChromeData: function(data) {
 	};
 },
 
-getPerformance: function (w) {
+getPerformance = function (w) {
 	return w.performance || w.msPerformance || w.webkitPerformance || w.mozPerformance;
 },
 
