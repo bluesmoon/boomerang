@@ -73,8 +73,8 @@ impl = {
 			BOOMR.info("Client supports Resource Timing API", "restiming");
 
 			BOOMR.addVar({ restiming: data });
-			BOOMR.utils.forEachFrame(function (frame) {
-				return mapData(frame.performance, 'restiming');
+			BOOMR.utils.forEachFrame(function (frame, index) {
+				BOOMR.addFrameVar(index, { restiming: mapData(frame.performance) });
 			});
 		}
 

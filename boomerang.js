@@ -82,7 +82,7 @@ BOOMR_check_doc_domain();
 // the parameter is the window
 (function(w) {
 
-var impl, boomr, d, myurl, createCustomEvent;
+var impl, boomr, d, myurl, createCustomEvent, cachedFrames;
 
 // This is the only block where we use document without the w. qualifier
 if(w.parent !== w
@@ -155,6 +155,48 @@ function dispatchEvent(e_name, e_data) {
 			d.fireEvent("onpropertychange", ev);
 		}
 	});
+}
+
+function addVarTo (object, name, value) {
+	if(typeof name === "string") {
+		object[name] = value;
+	}
+	else if(typeof name === "object") {
+		var o = name, k;
+		for(k in o) {
+			if(o.hasOwnProperty(k)) {
+				object[k] = o[k];
+			}
+		}
+	}
+}
+
+function getAccessibleFrames () {
+	var count, i, j, frame;
+
+	if (cachedFrames) {
+		return cachedFrames;
+	}
+
+	cachedFrames = [];
+	count = frames.length;
+
+	for(i = 0, j = 0; i < count; ++i) {
+		try {
+			frame = frames[i];
+
+			cachedFrames[j] = {
+				url: frame.document.URL,
+				frame: frame
+			};
+
+			++j;
+		} catch(e) {
+			BOOMR.debug("Ignoring exception in getAccessibleFrames [" + i + "]: " + e.message);
+		}
+	}
+
+	return cachedFrames;
 }
 
 // impl is a private object not reachable from outside the BOOMR object
@@ -527,30 +569,14 @@ boomr = {
 			form.submit();
 		},
 
-		forEachFrame: function(action, key) {
-			var i, j, frame,
-				count = frames.length;
+		forEachFrame: function(action) {
+			var i, frames, count, results;
 
-			if(count > 0) {
-				if(!impl.vars.frames) {
-					impl.vars.frames = [];
-				}
+			frames = getAccessibleFrames();
+			count = frames.length;
 
-				for(i = 0, j = 0; i < count; ++i) {
-					try {
-						frame = frames[i];
-
-						if(impl.vars.frames.length === j) {
-							impl.vars.frames[j] = {
-								u: frame.document.url
-							};
-						}
-
-						impl.vars.frames[j++][key] = action(frame);
-					} catch(e) {
-						BOOMR.debug("Exception thrown from forEachFrame [" + i + "]: " + e.message);
-					}
-				}
+			for(i = 0; i < count; ++i) {
+				action(frames[i].frame, i);
 			}
 		}
 	},
@@ -747,17 +773,22 @@ boomr = {
 	},
 
 	addVar: function(name, value) {
-		if(typeof name === "string") {
-			impl.vars[name] = value;
+		addVarTo(impl.vars, name, value);
+		return this;
+	},
+
+	addFrameVar: function (index, name, value) {
+		var frames = getAccessibleFrames(), frame = frames[index];
+
+		if (!impl.vars.frames) {
+			impl.vars.frames = new Array(frames.length);
 		}
-		else if(typeof name === "object") {
-			var o = name, k;
-			for(k in o) {
-				if(o.hasOwnProperty(k)) {
-					impl.vars[k] = o[k];
-				}
-			}
+
+		if (!impl.vars.frames[index]) {
+			impl.vars.frames[index] = { u: frame.url };
 		}
+
+		addVarTo(impl.vars.frames[index], name, value);
 		return this;
 	},
 

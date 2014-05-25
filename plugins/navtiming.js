@@ -68,6 +68,8 @@ var mapData = function(data) {
 },
 
 mapChromeData = function(data) {
+	var pt;
+
 	if(!data || !data.loadTimes) {
 		return;
 	}
@@ -108,16 +110,16 @@ impl = {
 		if(data) {
 			BOOMR.info("This user agent supports NavigationTiming.", "nt");
 			BOOMR.addVar(data);
-			BOOMR.utils.forEachFrame(function (frame) {
-				return mapData(getPerformance(frame));
+			BOOMR.utils.forEachFrame(function (frame, index) {
+				BOOMR.addFrameVar(index, mapData(getPerformance(frame)));
 			});
 		}
 
 		data = mapChromeData(w.chrome);
 		if (data) {
 			BOOMR.addVar(data);
-			BOOMR.utils.forEachFrame(function (frame) {
-				return mapChromeData(frame.chrome);
+			BOOMR.utils.forEachFrame(function (frame, index) {
+				BOOMR.addFrameVar(index, mapChromeData(frame.chrome));
 			});
 		}
 
