@@ -570,7 +570,7 @@ boomr = {
 		},
 
 		forEachFrame: function(action) {
-			var i, frames, count, results;
+			var i, frames, count;
 
 			frames = getAccessibleFrames();
 			count = frames.length;
