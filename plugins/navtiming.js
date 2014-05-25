@@ -4,14 +4,13 @@
 
 /**
 \file navtiming.js
-Plugin to collect metrics from the W3C Navigation Timing API. For more information about Navigation Timing,
-see: http://www.w3.org/TR/navigation-timing/
+Plugin to collect metrics from the W3C Navigation Timing API.
+For more information about Navigation Timing, see:
+	http://www.w3.org/TR/navigation-timing/
 */
 
 (function() {
 
-// First make sure BOOMR is actually defined.  It's possible that your plugin is loaded before boomerang, in which case
-// you'll need this.
 BOOMR = BOOMR || {};
 BOOMR.plugins = BOOMR.plugins || {};
 
@@ -92,7 +91,6 @@ getPerformance = function (w) {
 	return w.performance || w.msPerformance || w.webkitPerformance || w.mozPerformance;
 },
 
-// A private object to encapsulate all your implementation details
 impl = {
 	complete: false,
 	done: function() {
@@ -108,7 +106,7 @@ impl = {
 		data = mapData(getPerformance(w));
 
 		if(data) {
-			BOOMR.info("This user agent supports NavigationTiming.", "nt");
+			BOOMR.info("Client supports Resource Timing API.", "navtiming");
 			BOOMR.addVar(data);
 			BOOMR.utils.forEachFrame(function (frame, index) {
 				BOOMR.addFrameVar(index, mapData(getPerformance(frame)));
