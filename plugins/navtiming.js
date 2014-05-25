@@ -106,7 +106,7 @@ impl = {
 		data = mapData(getPerformance(w));
 
 		if(data) {
-			BOOMR.info("Client supports Resource Timing API.", "navtiming");
+			BOOMR.info("Client supports Navigation Timing API.", "navtiming");
 			BOOMR.addVar(data);
 			BOOMR.utils.forEachFrame(function (frame, index) {
 				BOOMR.addFrameVar(index, mapData(getPerformance(frame)));
