@@ -108,16 +108,16 @@ impl = {
 		if(data) {
 			BOOMR.info("Client supports Navigation Timing API.", "navtiming");
 			BOOMR.addVar(data);
-			BOOMR.utils.forEachFrame(function (frame, index) {
-				BOOMR.addFrameVar(index, mapData(getPerformance(frame)));
+			BOOMR.utils.forEachFrame(function (frame, indices) {
+				BOOMR.addFrameVar(indices, mapData(getPerformance(frame)));
 			});
 		}
 
 		data = mapChromeData(w.chrome);
 		if (data) {
 			BOOMR.addVar(data);
-			BOOMR.utils.forEachFrame(function (frame, index) {
-				BOOMR.addFrameVar(index, mapChromeData(frame.chrome));
+			BOOMR.utils.forEachFrame(function (frame, indices) {
+				BOOMR.addFrameVar(indices, mapChromeData(frame.chrome));
 			});
 		}
 

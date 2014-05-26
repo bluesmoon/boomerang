@@ -107,6 +107,8 @@ if(BOOMR.version) {
 BOOMR.version = "0.9";
 BOOMR.window = w;
 
+cachedFrames = {};
+
 // CustomEvent proxy for IE9 & 10 from https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
 (function() {
 	try {
@@ -171,23 +173,28 @@ function addVarTo (object, name, value) {
 	}
 }
 
-function getAccessibleFrames () {
-	var count, i, j, frame;
+function getAccessibleFrames (parent) {
+	var url, result, frames, count, i, j, frame;
 
-	if (cachedFrames) {
-		return cachedFrames;
+	parent = parent || w;
+	url = parent.document.URL;
+
+	if (cachedFrames[url]) {
+		return cachedFrames[url];
 	}
 
-	cachedFrames = [];
+	result = [];
+	frames = parent.frames;
 	count = frames.length;
 
 	for(i = 0, j = 0; i < count; ++i) {
 		try {
 			frame = frames[i];
 
-			cachedFrames[j] = {
+			result[j] = {
 				url: frame.document.URL,
-				frame: frame
+				window: frame,
+				frames: getAccessibleFrames(frame)
 			};
 
 			++j;
@@ -196,7 +203,7 @@ function getAccessibleFrames () {
 		}
 	}
 
-	return cachedFrames;
+	return cachedFrames[url] = result;
 }
 
 // impl is a private object not reachable from outside the BOOMR object
@@ -569,14 +576,19 @@ boomr = {
 			form.submit();
 		},
 
-		forEachFrame: function(action) {
-			var i, frames, count;
+		forEachFrame: function forEachFrame(action, parent, indices) {
+			var frames, count, i, frame;
 
-			frames = getAccessibleFrames();
+			frames = getAccessibleFrames(parent);
 			count = frames.length;
+			indices = indices || [];
 
 			for(i = 0; i < count; ++i) {
-				action(frames[i].frame, i);
+				frame = frames[i].window;
+				indices.push(i);
+				action(frame, indices);
+				forEachFrame(action, frame, indices);
+				indices.pop();
 			}
 		}
 	},
@@ -777,18 +789,31 @@ boomr = {
 		return this;
 	},
 
-	addFrameVar: function (index, name, value) {
-		var frames = getAccessibleFrames(), frame = frames[index];
+	addFrameVar: function (indices, name, value) {
+		var count, i, frames, frameVars, index, frame;
 
-		if (!impl.vars.frames) {
-			impl.vars.frames = new Array(frames.length);
+		count = indices.length;
+		frames = getAccessibleFrames();
+		frameVars = impl.vars;
+
+		for (i = 0; i < count; ++i) {
+			if (!frameVars.frames) {
+				frameVars.frames = new Array(frames.length);
+			}
+
+			index = indices[i];
+			frame = frames[index];
+			frames = frame.frames;
+			frameVars = frameVars.frames;
+
+			if (!frameVars[index]) {
+				frameVars[index] = { u: frame.url };
+			}
+
+			frameVars = frameVars[index];
 		}
 
-		if (!impl.vars.frames[index]) {
-			impl.vars.frames[index] = { u: frame.url };
-		}
-
-		addVarTo(impl.vars.frames[index], name, value);
+		addVarTo(frameVars, name, value);
 		return this;
 	},
 
