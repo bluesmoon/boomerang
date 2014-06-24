@@ -174,7 +174,7 @@ function addVarTo (object, name, value) {
 }
 
 function getAccessibleFrames (parent) {
-	var url, result, frames, count, i, j, frame;
+	var url, result, frames, count, i, frame;
 
 	parent = parent || w;
 	url = parent.document.URL;
@@ -187,23 +187,22 @@ function getAccessibleFrames (parent) {
 	frames = parent.frames;
 	count = frames.length;
 
-	for(i = 0, j = 0; i < count; ++i) {
+	for(i = 0; i < count; ++i) {
 		try {
 			frame = frames[i];
 
-			result[j] = {
+			result.push({
 				url: frame.document.URL,
 				window: frame,
 				frames: getAccessibleFrames(frame)
-			};
-
-			++j;
+			});
 		} catch(e) {
 			BOOMR.debug("Ignoring exception in getAccessibleFrames [" + i + "]: " + e.message);
 		}
 	}
 
-	return cachedFrames[url] = result;
+	cachedFrames[url] = result;
+	return result;
 }
 
 // impl is a private object not reachable from outside the BOOMR object
@@ -576,7 +575,7 @@ boomr = {
 			form.submit();
 		},
 
-		forEachFrame: function forEachFrame(action, parent, indices) {
+		forEachFrame: function(action, parent, indices) {
 			var frames, count, i, frame;
 
 			frames = getAccessibleFrames(parent);
@@ -587,7 +586,7 @@ boomr = {
 				frame = frames[i].window;
 				indices.push(i);
 				action(frame, indices);
-				forEachFrame(action, frame, indices);
+				boomr.utils.forEachFrame(action, frame, indices);
 				indices.pop();
 			}
 		}
@@ -789,6 +788,37 @@ boomr = {
 		return this;
 	},
 
+	// Frame-based corollary to `addVar`, which adds its values to items
+	// in the `impl.vars.frames` array. That array has one item for each
+	// accessible frame and the items within it have the same structure
+	// as the main `impl.vars` object. e.g.:
+	// impl = {
+	//     vars: {
+	//         nt_fet_st: 1403585426765,
+	//         ...
+	//         restiming: [
+	//             {
+	//                 rt_fet_st: 282.0359999896027,
+	//                 ...
+	//             },
+	//             ...
+	//         ],
+	//         frames: [
+	//             {
+	//                 nt_fet_st: 1514696537876,
+	//                 ...
+	//                 restiming: [
+	//                     {
+	//                         rt_fet_st: 293.1460000907138,
+	//                         ...
+	//                     },
+	//                     ...
+	//                 ]
+	//             },
+	//             ...
+	//         ]
+	//     }
+	// };
 	addFrameVar: function (indices, name, value) {
 		var count, i, frames, frameVars, index, frame;
 
