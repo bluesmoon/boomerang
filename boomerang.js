@@ -575,7 +575,7 @@ boomr = {
 			form.submit();
 		},
 
-		forEachFrame: function(action, parent, indices) {
+		forEachFrame: function forEachFrame(action, parent, indices) {
 			var frames, count, i, frame;
 
 			frames = getAccessibleFrames(parent);
@@ -586,7 +586,7 @@ boomr = {
 				frame = frames[i].window;
 				indices.push(i);
 				action(frame, indices);
-				boomr.utils.forEachFrame(action, frame, indices);
+				forEachFrame(action, frame, indices);
 				indices.pop();
 			}
 		}
