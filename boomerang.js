@@ -796,10 +796,12 @@ boomr = {
 	// e.g.:
 	//     impl = {
 	//         vars: {
+	//             u: 'http://www.example.com/'
 	//             nt_fet_st: 1403585426765,
 	//             ...,
 	//             frames: [
 	//                 {
+	//                     u: 'http://www.example.com/frame'
 	//                     nt_fet_st: 1403585426765,
 	//                     ...
 	//                 },
