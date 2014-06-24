@@ -783,42 +783,30 @@ boomr = {
 		return this;
 	},
 
+	// Add data to `impl.vars`. If `name` is an object, copy properties from `name`.
 	addVar: function(name, value) {
 		addVarTo(impl.vars, name, value);
 		return this;
 	},
 
-	// Frame-based corollary to `addVar`, which adds its values to items
-	// in the `impl.vars.frames` array. That array has one item for each
-	// accessible frame and the items within it have the same structure
-	// as the main `impl.vars` object. e.g.:
-	// impl = {
-	//     vars: {
-	//         nt_fet_st: 1403585426765,
-	//         ...
-	//         restiming: [
-	//             {
-	//                 rt_fet_st: 282.0359999896027,
-	//                 ...
-	//             },
-	//             ...
-	//         ],
-	//         frames: [
-	//             {
-	//                 nt_fet_st: 1514696537876,
-	//                 ...
-	//                 restiming: [
-	//                     {
-	//                         rt_fet_st: 293.1460000907138,
-	//                         ...
-	//                     },
+	// Frame-based corollary to `addVar`, which adds data to items in the
+	// `impl.vars.frames` array instead of directly onto `impl.vars`. That
+	// array has one item for each accessible frame, those items each having
+	// the same structure as the main `impl.vars` object.
+	// e.g.:
+	//     impl = {
+	//         vars: {
+	//             nt_fet_st: 1403585426765,
+	//             ...,
+	//             frames: [
+	//                 {
+	//                     nt_fet_st: 1403585426765,
 	//                     ...
-	//                 ]
-	//             },
-	//             ...
-	//         ]
-	//     }
-	// };
+	//                 },
+	//                 ...
+	//             ]
+	//         }
+	//     };
 	addFrameVar: function (indices, name, value) {
 		var count, i, frames, frameVars, index, frame;
 
