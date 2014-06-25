@@ -792,7 +792,8 @@ boomr = {
 	// Frame-based corollary to `addVar`, which adds data to items in the
 	// `impl.vars.frames` array instead of directly onto `impl.vars`. That
 	// array has one item for each accessible frame, those items each having
-	// the same structure as the main `impl.vars` object.
+	// the same structure as the main `impl.vars` object. Nested frames
+	// will generate nested `frame` arrays.
 	// e.g.:
 	//     impl = {
 	//         vars: {
@@ -814,6 +815,8 @@ boomr = {
 
 		count = indices.length;
 		frames = getAccessibleFrames();
+		console.log('PHIL!');
+		console.dir(frames);
 		frameVars = impl.vars;
 
 		for (i = 0; i < count; ++i) {
