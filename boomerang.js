@@ -202,7 +202,7 @@ function getAccessibleFrames (parent) {
 				frames: getAccessibleFrames(frame.contentWindow)
 			});
 		} catch(e) {
-			BOOMR("Ignoring exception in getAccessibleFrames [" + frame.src + "]: " + e.message);
+			BOOMR.debug("Ignoring exception in getAccessibleFrames [" + frame.src + "]: " + e.message);
 		}
 	}
 
