@@ -174,30 +174,35 @@ function addVarTo (object, name, value) {
 }
 
 function getAccessibleFrames (parent) {
-	var url, result, frames, count, i, frame;
+	var document, url, result, frames, count, i, frame, frameDocument;
 
 	parent = parent || w;
-	url = parent.document.URL;
+	document = parent.document;
+	url = document.URL;
 
-	if (cachedFrames[url]) {
+	if(cachedFrames[url]) {
 		return cachedFrames[url];
 	}
 
 	result = [];
-	frames = parent.frames;
+	frames = document.getElementsByTagName('iframe');
+	if(frames.length === 0) {
+		frames = document.getElementsByTagName('frame');
+	}
 	count = frames.length;
 
 	for(i = 0; i < count; ++i) {
 		try {
 			frame = frames[i];
+			frameDocument = frame.contentDocument || frame.contentWindow.document;
 
 			result.push({
-				url: frame.document.URL,
-				window: frame,
-				frames: getAccessibleFrames(frame)
+				url: frame.src || frameDocument.URL,
+				window: frame.contentWindow,
+				frames: getAccessibleFrames(frame.contentWindow)
 			});
 		} catch(e) {
-			BOOMR.debug("Ignoring exception in getAccessibleFrames [" + i + "]: " + e.message);
+			BOOMR.debug("Ignoring exception in getAccessibleFrames [" + frame.src + "]: " + e.message);
 		}
 	}
 
