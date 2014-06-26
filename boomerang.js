@@ -202,7 +202,7 @@ function getAccessibleFrames (parent) {
 				frames: getAccessibleFrames(frame.contentWindow)
 			});
 		} catch(e) {
-			BOOMR.debug("Ignoring exception in getAccessibleFrames [" + frame.src + "]: " + e.message);
+			BOOMR("Ignoring exception in getAccessibleFrames [" + frame.src + "]: " + e.message);
 		}
 	}
 
@@ -820,8 +820,6 @@ boomr = {
 
 		count = indices.length;
 		frames = getAccessibleFrames();
-		console.log('PHIL!');
-		console.dir(frames);
 		frameVars = impl.vars;
 
 		for (i = 0; i < count; ++i) {
