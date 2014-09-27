@@ -1,20 +1,16 @@
 'use strict';
 module.exports = function (grunt) {
 
-    
+    var src = [ "boomerang.js" ];
+    var plugins = grunt.file.readJSON("plugins.json");
+    src.push(plugins.plugins);
 
     grunt.initConfig({ 
 	pkg: grunt.file.readJSON("package.json"),
 	uglify: {
 	    options : {},
 	    build: {
-		src: [
-		    'boomerang.js',
-		    'plugins/bw.js',
-		    'plugins/rt.js',
-		    'plugins/navtiming.js',
-		    'plugins/dns.js'
-		],
+		src: src,
 		dest: 'build/boomerang.min.js'
 	    }
 	},
