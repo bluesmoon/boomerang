@@ -2,6 +2,7 @@
  * Copyright (c) 2011, Yahoo! Inc.  All rights reserved.
  * Copyright (c) 2012, Log-Normal, Inc.  All rights reserved.
  * Copyright (c) 2014, SOASTA, Inc. All rights reserved.
+ * Copyright (c) 2014, Andreas Marschke All rights reserved.
  * Copyrights licensed under the BSD License. See the accompanying LICENSE.txt file for terms.
  */
 
@@ -857,6 +858,8 @@ boomr = {
 
 		// If we reach here, all plugins have completed
 		impl.fireEvent("before_beacon", impl.vars);
+
+		impl.vars.plugins = Object.keys(this.plugins).join(",");
 
 		// Don't send a beacon if no beacon_url has been set
 		// you would do this if you want to do some fancy beacon handling
