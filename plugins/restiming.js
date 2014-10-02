@@ -9,6 +9,9 @@ For more information about Resource Timing, see:
 
 BOOMR = BOOMR || {};
 BOOMR.plugins = BOOMR.plugins || {};
+if (BOOMR.plugins.ResourceTiming) {
+	return;
+}
 
 var restricted = {
 	redirectStart: "rt_red_st",
