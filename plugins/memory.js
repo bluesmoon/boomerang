@@ -14,6 +14,9 @@ see: http://code.google.com/p/chromium/issues/detail?id=43281
 // you'll need this.
 BOOMR = BOOMR || {};
 BOOMR.plugins = BOOMR.plugins || {};
+if (BOOMR.plugins.Memory) {
+	return;
+}
 
 // A private object to encapsulate all your implementation details
 var impl = {
@@ -27,7 +30,7 @@ var impl = {
 		    p  = w.performance,
 		    c  = w.console,
 		    d  = w.document,
-		    fn = (({}).toString.call(w.opera) === '[object Opera]' ? d.querySelectorAll : d.getElementsByTagName),
+		    fn = d.getElementsByTagName,
 		    m, f;
 
 		// handle IE6/7 weirdness regarding host objects
@@ -43,17 +46,17 @@ var impl = {
 
 		if(m) {
 			BOOMR.addVar({
-				'mem.total': m.totalJSHeapSize,
-				'mem.used' : m.usedJSHeapSize
+				"mem.total": m.totalJSHeapSize,
+				"mem.used" : m.usedJSHeapSize
 			});
 		}
 
 
 		BOOMR.addVar({
-			'dom.ln': f.call(d, '*').length,
-			'dom.sz': f.call(d, 'html')[0].innerHTML.length,
-			'dom.img': f.call(d, 'img').length,
-			'dom.script': f.call(d, 'script').length
+			"dom.ln": f.call(d, "*").length,
+			"dom.sz": f.call(d, "html")[0].innerHTML.length,
+			"dom.img": f.call(d, "img").length,
+			"dom.script": f.call(d, "script").length
 		});
 
 		this.complete = true;

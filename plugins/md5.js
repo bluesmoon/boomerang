@@ -18,17 +18,16 @@
  */
 
 (function() {
+/*jslint bitwise: true */
+/*global unescape*/
+
+    "use strict";
+
 BOOMR = BOOMR || {};
 if(BOOMR.utils && BOOMR.utils.md5) {
 	return;
 }
 BOOMR.utils = BOOMR.utils || {};
-
-
-/*jslint bitwise: true */
-/*global unescape, define */
-
-    'use strict';
 
     /*
     * Add integers, wrapping at 2^32. This uses 16-bit operations internally
@@ -167,7 +166,7 @@ BOOMR.utils = BOOMR.utils || {};
     */
     function binl2rstr(input) {
         var i,
-            output = '';
+            output = "";
         for (i = 0; i < input.length * 32; i += 8) {
             output += String.fromCharCode((input[i >> 5] >>> (i % 32)) & 0xFF);
         }
@@ -223,8 +222,8 @@ BOOMR.utils = BOOMR.utils || {};
     * Convert a raw string to a hex string
     */
     function rstr2hex(input) {
-        var hex_tab = '0123456789abcdef',
-            output = '',
+        var hex_tab = "0123456789abcdef",
+            output = "",
             x,
             i;
         for (i = 0; i < input.length; i += 1) {

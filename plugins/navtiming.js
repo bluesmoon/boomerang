@@ -13,6 +13,9 @@ For more information about Navigation Timing, see:
 
 BOOMR = BOOMR || {};
 BOOMR.plugins = BOOMR.plugins || {};
+if (BOOMR.plugins.NavigationTiming) {
+	return;
+}
 
 var mapData = function(data) {
 	var pn, pt, mapped;

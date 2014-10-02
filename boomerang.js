@@ -16,6 +16,11 @@ something with the data you collect.  How you collect the data is up to
 you, but we have a few ideas.
 */
 
+/*eslint-env browser*/
+/*global BOOMR:true, BOOMR_start:true, BOOMR_lstart:true, console:false*/
+/*eslint no-mixed-spaces-and-tabs:[2, true], console:0, camelcase:0, strict:0, quotes:[2, "double", "avoid-escape"], new-cap:0*/
+/*eslint space-infix-ops:0, no-console:0, no-delete-var:0, no-space-before-semi:0*/
+
 // Measure the time the script started
 // This has to be global so that we don't wait for the entire
 // BOOMR function to download and execute before measuring the
@@ -36,6 +41,7 @@ BOOMR_start = new Date().getTime();
  it.
  */
 function BOOMR_check_doc_domain(domain) {
+	/*eslint no-unused-vars:0*/
 	var test;
 
 	// If domain is not passed in, then this is a global call
@@ -43,21 +49,21 @@ function BOOMR_check_doc_domain(domain) {
 	// skip the frame check at that point
 	if(!domain) {
 		// If we're running in the main window, then we don't need this
-		if(window.parent === window || !document.getElementById('boomr-if-as')) {
-			return true;	// nothing to do
+		if(window.parent === window || !document.getElementById("boomr-if-as")) {
+			return;// true;	// nothing to do
 		}
 
 		domain = document.domain;
 	}
 
 	if(domain.indexOf(".") === -1) {
-		return false;	// not okay, but we did our best
+		return;// false;	// not okay, but we did our best
 	}
 
 	// 1. Test without setting document.domain
 	try {
 		test = window.parent.document;
-		return test !== undefined;	// all okay
+		return;// test !== undefined;	// all okay
 	}
 	// 2. Test with document.domain
 	catch(err) {
@@ -65,14 +71,14 @@ function BOOMR_check_doc_domain(domain) {
 	}
 	try {
 		test = window.parent.document;
-		return test !== undefined;	// all okay
+		return;// test !== undefined;	// all okay
 	}
 	// 3. Strip off leading part and try again
 	catch(err) {
-		domain = domain.replace(/^[\w\-]+\./, '');
+		domain = domain.replace(/^[\w\-]+\./, "");
 	}
 
-	return BOOMR_check_doc_domain(domain);
+	BOOMR_check_doc_domain(domain);
 }
 
 BOOMR_check_doc_domain();
@@ -82,22 +88,20 @@ BOOMR_check_doc_domain();
 // the parameter is the window
 (function(w) {
 
-var impl, boomr, d, myurl, createCustomEvent, cachedFrames;
+var impl, boomr, d, myurl, createCustomEvent, dispatchEvent, cachedFrames;
 
 // This is the only block where we use document without the w. qualifier
 if(w.parent !== w
-		&& document.getElementById('boomr-if-as')
-		&& document.getElementById('boomr-if-as').nodeName.toLowerCase() === 'script') {
+		&& document.getElementById("boomr-if-as")
+		&& document.getElementById("boomr-if-as").nodeName.toLowerCase() === "script") {
 	w = w.parent;
-	myurl = document.getElementById('boomr-if-as').src;
+	myurl = document.getElementById("boomr-if-as").src;
 }
 
 d = w.document;
 
 // Short namespace because I don't want to keep typing BOOMERANG
-if(w.BOOMR === undefined) {
-	w.BOOMR = {};
-}
+if(!w.BOOMR) { w.BOOMR = {}; }
 BOOMR = w.BOOMR;
 // don't allow this code to be included twice
 if(BOOMR.version) {
@@ -109,6 +113,8 @@ BOOMR.window = w;
 
 cachedFrames = {};
 
+if (!BOOMR.plugins) { BOOMR.plugins = {}; }
+
 // CustomEvent proxy for IE9 & 10 from https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
 (function() {
 	try {
@@ -118,46 +124,53 @@ cachedFrames = {};
 			};
 		}
 	}
-	catch(e) {
-		if (d.createEvent) {
+	catch(ignore) {
+	}
+
+	try {
+		if (!createCustomEvent && d.createEvent && d.createEvent( "CustomEvent" )) {
 			createCustomEvent = function (e_name, params) {
-				var evt = d.createEvent( 'CustomEvent' );
+				var evt = d.createEvent( "CustomEvent" );
 				params = params || { cancelable: false, bubbles: false };
 				evt.initCustomEvent( e_name, params.bubbles, params.cancelable, params.detail );
 
 				return evt;
 			};
 		}
-		else if (d.createEventObject) {
-			createCustomEvent = function (e_name, params) {
-				var evt = d.createEventObject();
-				evt.type = evt.propertyName = e_name;
-				evt.detail = params.detail;
-
-				return evt;
-			};
-		}
 	}
+	catch(ignore) {
+	}
+
+	if (!createCustomEvent && d.createEventObject) {
+		createCustomEvent = function (e_name, params) {
+			var evt = d.createEventObject();
+			evt.type = evt.propertyName = e_name;
+			evt.detail = params.detail;
+
+			return evt;
+		};
+	}
+
 	if(!createCustomEvent) {
 		createCustomEvent = function() { return undefined; };
 	}
 }());
 
-function dispatchEvent(e_name, e_data) {
+dispatchEvent = function(e_name, e_data) {
 	var ev = createCustomEvent(e_name, {"detail": e_data});
 	if (!ev) {
 		return;
 	}
 
 	BOOMR.setImmediate(function() {
-		if (d.dispatchEvent) {
+		if(d.dispatchEvent) {
 			d.dispatchEvent(ev);
 		}
 		else if(d.fireEvent) {
 			d.fireEvent("onpropertychange", ev);
 		}
 	});
-}
+};
 
 function addVarTo (object, name, value) {
 	if(typeof name === "string") {
@@ -224,10 +237,10 @@ impl = {
 	// but we allow the developer to override site_domain for that.
 	// You can disable all cookies by setting site_domain to a falsy value
 	site_domain: w.location.hostname.
-				replace(/.*?([^.]+\.[^.]+)\.?$/, '$1').
+				replace(/.*?([^.]+\.[^.]+)\.?$/, "$1").
 				toLowerCase(),
 	//! User's ip address determined on the server.  Used for the BA cookie
-	user_ip: '',
+	user_ip: "",
 
 	strip_query_string: false,
 
@@ -254,39 +267,31 @@ impl = {
 
 	vars: {},
 
+	errors: {},
+
 	disabled_plugins: {},
 
-	onclick_handler: function(ev) {
-		var target;
-		if (!ev) { ev = w.event; }
-		if (ev.target) { target = ev.target; }
-		else if (ev.srcElement) { target = ev.srcElement; }
-		if (target.nodeType === 3) {// defeat Safari bug
-			target = target.parentNode;
-		}
+	xb_handler: function(type) {
+		return function(ev) {
+			var target;
+			if (!ev) { ev = w.event; }
+			if (ev.target) { target = ev.target; }
+			else if (ev.srcElement) { target = ev.srcElement; }
+			if (target.nodeType === 3) {// defeat Safari bug
+				target = target.parentNode;
+			}
 
-		// don't capture clicks on flash objects
-		// because of context slowdowns in PepperFlash
-		if(target && target.nodeName.toUpperCase() === "OBJECT" && target.type === "application/x-shockwave-flash") {
-			return;
-		}
-		impl.fireEvent("click", target);
-	},
-
-	onsubmit_handler: function(ev) {
-		var target;
-		if (!ev) { ev = w.event; }
-		if (ev.target) { target = ev.target; }
-		else if (ev.srcElement) { target = ev.srcElement; }
-		if (target.nodeType === 3) {// defeat Safari bug
-			target = target.parentNode;
-		}
-
-		impl.fireEvent("form_submit", target);
+			// don't capture events on flash objects
+			// because of context slowdowns in PepperFlash
+			if(target && target.nodeName.toUpperCase() === "OBJECT" && target.type === "application/x-shockwave-flash") {
+				return;
+			}
+			impl.fireEvent(type, target);
+		};
 	},
 
 	fireEvent: function(e_name, data) {
-		var i, h, e;
+		var i, handler, handlers;
 
 		e_name = e_name.toLowerCase();
 
@@ -294,15 +299,20 @@ impl = {
 			return false;
 		}
 
-		e = this.events[e_name];
-
-		for(i=0; i<e.length; i++) {
-			h = e[i];
-			h[0].call(h[2], data, h[1]);
-		}
-
 		if (this.public_events.hasOwnProperty(e_name)) {
 			dispatchEvent(this.public_events[e_name], data);
+		}
+
+		handlers = this.events[e_name];
+
+		for(i=0; i<handlers.length; i++) {
+			try {
+				handler = handlers[i];
+				handler.fn.call(handler.scope, data, handler.cb_data);
+			}
+			catch(err) {
+				BOOMR.addError(err, "fireEvent." + e_name);
+			}
 		}
 
 		return true;
@@ -356,7 +366,7 @@ boomr = {
 				for(k in o) {
 					if(Object.prototype.hasOwnProperty.call(o, k)) {
 						if (nest_level > 0 && o[k] !== null && typeof o[k] === "object") {
-							value.push(encodeURIComponent(k) + '=' +
+							value.push(encodeURIComponent(k) + "=" +
 								this.objectToString(
 									o[k],
 									separator + (separator === "\n\t" ? "\t" : ""),
@@ -365,7 +375,7 @@ boomr = {
 							);
 						}
 						else {
-							value.push(encodeURIComponent(k) + '=' + encodeURIComponent(o[k]));
+							value.push(encodeURIComponent(k) + "=" + encodeURIComponent(o[k]));
 						}
 					}
 				}
@@ -379,13 +389,13 @@ boomr = {
 				return null;
 			}
 
-			name = ' ' + name + '=';
+			name = " " + name + "=";
 
 			var i, cookies;
-			cookies = ' ' + d.cookie + ';';
+			cookies = " " + d.cookie + ";";
 			if ( (i=cookies.indexOf(name)) >= 0 ) {
 				i += name.length;
-				cookies = cookies.substring(i, cookies.indexOf(';', i));
+				cookies = cookies.substring(i, cookies.indexOf(";", i));
 				return cookies;
 			}
 
@@ -401,7 +411,7 @@ boomr = {
 			}
 
 			value = this.objectToString(subcookies, "&");
-			nameval = name + '=' + value;
+			nameval = name + "=" + value;
 
 			c = [nameval, "path=/", "domain=" + impl.site_domain];
 			if(max_age) {
@@ -412,7 +422,7 @@ boomr = {
 			}
 
 			if ( nameval.length < 500 ) {
-				d.cookie = c.join('; ');
+				d.cookie = c.join("; ");
 				// confirm cookie was set (could be blocked by user's settings, etc.)
 				savedval = this.getCookie(name);
 				if(value === savedval) {
@@ -442,10 +452,10 @@ boomr = {
 				return null;
 			}
 
-			cookies_a = cookie.split('&');
+			cookies_a = cookie.split("&");
 
 			for(i=0, l=cookies_a.length; i<l; i++) {
-				kv = cookies_a[i].split('=');
+				kv = cookies_a[i].split("=");
 				if(kv[0]) {
 					kv.push("");	// just in case there's no value
 					cookies[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1]);
@@ -465,7 +475,7 @@ boomr = {
 				return "";
 			}
 			if(impl.strip_query_string) {
-				return url.replace(/\?.*/, '?qs-redacted');
+				return url.replace(/\?.*/, "?qs-redacted");
 			}
 			return url;
 		},
@@ -482,12 +492,12 @@ boomr = {
 				return "";
 			}
 			if(stripHash) {
-				url = url.replace(/#.*/, '');
+				url = url.replace(/#.*/, "");
 			}
 			if(!BOOMR.utils.MD5) {
 				return url;
 			}
-			return url.replace(/\?([^#]*)/, function(m0, m1) { return '?' + (m1.length > 10 ? BOOMR.utils.MD5(m1) : m1); });
+			return url.replace(/\?([^#]*)/, function(m0, m1) { return "?" + (m1.length > 10 ? BOOMR.utils.MD5(m1) : m1); });
 		},
 
 		pluginConfig: function(o, config, plugin_name, properties) {
@@ -510,16 +520,16 @@ boomr = {
 		addListener: function(el, type, fn) {
 			if (el.addEventListener) {
 				el.addEventListener(type, fn, false);
-			} else {
-				el.attachEvent( 'on' + type, fn );
+			} else if (el.attachEvent) {
+				el.attachEvent( "on" + type, fn );
 			}
 		},
 
 		removeListener: function (el, type, fn) {
 			if (el.removeEventListener) {
 				el.removeEventListener(type, fn, false);
-			} else {
-				el.detachEvent('on' + type, fn);
+			} else if (el.detachEvent) {
+				el.detachEvent("on" + type, fn);
 			}
 		},
 
@@ -537,7 +547,7 @@ boomr = {
 						arr.push(
 							encodeURIComponent(prefix ? (prefix + "[" + k + "]") : k)
 							+ "="
-							+ (vars[k]===undefined || vars[k]===null ? '' : encodeURIComponent(vars[k]))
+							+ (vars[k]===undefined || vars[k]===null ? "" : encodeURIComponent(vars[k]))
 						);
 					}
 				}
@@ -617,7 +627,7 @@ boomr = {
 			this.log = config.log;
 		}
 		if(!this.log) {
-			this.log = function(/* m,l,s */) { return; };
+			this.log = function(/* m,l,s */) {};
 		}
 
 		for(k in this.plugins) {
@@ -638,7 +648,12 @@ boomr = {
 
 				// plugin exists and has an init method
 				if(typeof this.plugins[k].init === "function") {
-					this.plugins[k].init(config);
+					try {
+						this.plugins[k].init(config);
+					}
+					catch(err) {
+						BOOMR.addError(err, k + ".init");
+					}
 				}
 			}
 		}
@@ -681,11 +696,11 @@ boomr = {
 				boomr.utils.addListener(d, "visibilitychange", fire_visible);
 			}
 
-			boomr.utils.addListener(d, "mouseup", impl.onclick_handler);
+			boomr.utils.addListener(d, "mouseup", impl.xb_handler("click"));
 
 			forms = d.getElementsByTagName("form");
 			for(iterator = 0; iterator < forms.length; iterator++) {
-				boomr.utils.addListener(forms[iterator], "submit", impl.onsubmit_handler);
+				boomr.utils.addListener(forms[iterator], "submit", impl.xb_handler("form_submit"));
 			}
 
 			if(!w.onpagehide && w.onpagehide !== null) {
@@ -738,7 +753,7 @@ boomr = {
 	},
 
 	subscribe: function(e_name, fn, cb_data, cb_scope) {
-		var i, h, e, unload_handler;
+		var i, handler, ev, unload_handler;
 
 		e_name = e_name.toLowerCase();
 
@@ -746,19 +761,19 @@ boomr = {
 			return this;
 		}
 
-		e = impl.events[e_name];
+		ev = impl.events[e_name];
 
 		// don't allow a handler to be attached more than once to the same event
-		for(i=0; i<e.length; i++) {
-			h = e[i];
-			if(h[0] === fn && h[1] === cb_data && h[2] === cb_scope) {
+		for(i=0; i<ev.length; i++) {
+			handler = ev[i];
+			if(handler.fn === fn && handler.cb_data === cb_data && handler.scope === cb_scope) {
 				return this;
 			}
 		}
-		e.push([ fn, cb_data || {}, cb_scope || null ]);
+		ev.push({ "fn": fn, "cb_data": cb_data || {}, "scope": cb_scope || null });
 
 		// attaching to page_ready after onload fires, so call soon
-		if(e_name === 'page_ready' && impl.onloadfired) {
+		if(e_name === "page_ready" && impl.onloadfired) {
 			this.setImmediate(fn, null, cb_data, cb_scope);
 		}
 
@@ -768,7 +783,7 @@ boomr = {
 		// onbeforeunload is the right event to fire, but all browsers don't
 		// support it.  This allows us to fall back to onunload when onbeforeunload
 		// isn't implemented
-		if(e_name === 'page_unload') {
+		if(e_name === "page_unload") {
 			unload_handler = function(ev) {
 							if(fn) {
 								fn.call(cb_scope, ev || w.event, cb_data);
@@ -787,6 +802,23 @@ boomr = {
 
 		return this;
 	},
+
+	addError: function(err, src) {
+		if (typeof err !== "string") {
+			err = String(err);
+		}
+		if (src !== undefined) {
+			err = "[" + src + ":" + (new Date().getTime()) + "] " + err;
+		}
+
+		if (impl.errors[err]) {
+			impl.errors[err]++;
+		}
+		else {
+			impl.errors[err] = 1;
+		}
+	},
+
 
 	// Add data to `impl.vars`. If `name` is an object, copy properties from `name`.
 	addVar: function(name, value) {
@@ -871,19 +903,22 @@ boomr = {
 		BOOMR.plugins.RT.startTimer("xhr_" + name, t_start);
 
 		return {
-			loaded: function() {
-				BOOMR.responseEnd(name, t_start);
+			loaded: function(data) {
+				BOOMR.responseEnd(name, t_start, data);
 			}
 		};
 	},
 
-	responseEnd: function(name, t_start) {
+	responseEnd: function(name, t_start, data) {
 		BOOMR.plugins.RT.startTimer("xhr_" + name, t_start);
-		impl.fireEvent("xhr_load", { "name": "xhr_" + name });
+		impl.fireEvent("xhr_load", {
+			"name": "xhr_" + name,
+			"data": data
+		});
 	},
 
 	sendBeacon: function() {
-		var k, data, url, img, nparams;
+		var k, data, url, img, nparams, errors=[];
 
 		BOOMR.debug("Checking if we can send beacon");
 
@@ -904,10 +939,22 @@ boomr = {
 
 		impl.vars.v = BOOMR.version;
 		// use d.URL instead of location.href because of a safari bug
-		impl.vars.u = BOOMR.utils.cleanupURL(d.URL.replace(/#.*/, ''));
+		impl.vars.u = BOOMR.utils.cleanupURL(d.URL.replace(/#.*/, ""));
 		if(w !== window) {
 			impl.vars["if"] = "";
 		}
+
+		for (k in impl.errors) {
+			if (impl.errors.hasOwnProperty(k)) {
+				errors.push(k + (impl.errors[k] > 1 ? " (*" + impl.errors[k] + ")" : ""));
+			}
+		}
+
+		if(errors.length > 0) {
+			impl.vars.errors = errors.join("\n");
+		}
+
+		impl.errors = {};
 
 		// If we reach here, all plugins have completed
 		impl.fireEvent("before_beacon", impl.vars);
@@ -931,14 +978,14 @@ boomr = {
 			return this;
 		}
 
-		data = data.join('&');
+		data = data.join("&");
 
-		if(impl.beacon_type === 'POST') {
+		if(impl.beacon_type === "POST") {
 			BOOMR.utils.postData(data);
 		} else {
 			// if there are already url parameters in the beacon url,
 			// change the first parameter prefix for the boomerang url parameters to &
-			url = impl.beacon_url + ((impl.beacon_url.indexOf('?') > -1)?'&':'?') + data;
+			url = impl.beacon_url + ((impl.beacon_url.indexOf("?") > -1)?"&":"?") + data;
 
 			// using 2000 here as a de facto maximum URL length based on:
 			// http://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers
@@ -958,11 +1005,11 @@ boomr = {
 
 delete BOOMR_start;
 
-if(typeof BOOMR_lstart === 'number') {
+if(typeof BOOMR_lstart === "number") {
 	boomr.t_lstart = BOOMR_lstart;
 	delete BOOMR_lstart;
 }
-else if(typeof BOOMR.window.BOOMR_lstart === 'number') {
+else if(typeof BOOMR.window.BOOMR_lstart === "number") {
 	boomr.t_lstart = BOOMR.window.BOOMR_lstart;
 }
 
