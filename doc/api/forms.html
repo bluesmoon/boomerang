@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+  <title>The forms API</title>
+  <link rel="stylesheet" type="text/css" href="../boomerang-docs.css"
+</head>
+<body>
+  <span style="float:right;"><a href="../">All Docs</a> | <a href="index.html">Index</a></span>
+  <h1>The Forms Plugin</h1>
+  <p>The <code>forms</code> Plugin tracks all form submissions on a page and beacons them to a dedicated endpoint on your beacon-server.</p>
+  <p>The <code>forms</code> API is encapsulated in the <code>BOOMR.plugins.forms</code> namespace </p>
+  <p>WARNING: Be aware that this plugin uses the HTTP POST-Method to send data to the beacon-server as it can not anticipate the size of the to be sent data entirely </p>
+  <h2 id="config">Configuration</h2>
+  <p>
+    The forms plugin configuration is contained in the <code>forms</code> namespace in the initial Boomerang configuration Object. 
+  </p>
+  <p>See <a href="../howtos/howto-6.html">"Howto #6 &mdash; Configuring boomerang"</a> for more information on how to configure Boomerang</p>
+  
+  <dl>
+    <dt>forms_url</dt>
+    <dd>
+      <strong>[required]</strong>
+      The Url the form submission events are supposed to be sent to. You need to specify this.
+    </dd>
+  </dl>
+
+<h2 id="methods">Methods</h2>
+
+<dl class="api">
+
+  <dt>init(oConfig)</dt>
+  <dd>
+    <p>
+      Called by the <a href="BOOMR.html#init">BOOMR.init()</a> method to configure the forms plugin.
+    </p>
+    <pre>
+      BOOMR.init({
+        forms: {
+          forms_url: "http://&lt;your beacon server&gt;/forms"
+        }
+      });
+    </pre>
+    <h3>Parameters</h3>
+    <dl>
+      <dt>oConfig</dt>
+      <dd>The configuration object passed in via <code>BOOMR.init()</code>.  See the <a href="#config">Configuration section</a> for details.
+    </dl>
+    <h3>Returns</h3>
+    <p>
+      a reference to the <code>BOOMR.plugins.forms</code> object, so you can chain methods.
+    </p>
+  </dd>
+  
+
+  <h2 id="beacon">Beacon Parameters</h2>
+  <p>
+    The following parameters are sent when a forms event is triggered. 
+  </p>
+  <dl>
+    <dt>form_data</dt><dd>An array of JSON.stringified values from the submitted form</dd>
+  </dl>
+
+  <h2 id="form_data"></h2>
+  <p>
+    The following parameters are contained in the Object which is part of the submitted form_data Array
+  </p>
+  <dl>
+    <dt>name</dt><dd>The name attribute of the submitted input form element</dd>
+    <dt>value</dt><dd>The value of the submitted input form element</dd>
+    <dt>type</dt><dd>The type of element to be submit</dd>
+    <dt>id</dt><dd>The id of the element</dd>
+  </dl>
+
+  <p>For a simple input form the returned values may look like this:</p>
+  <pre>
+    "form_data": [
+        {
+            "name": "name",
+            "value": "Andreas Marschke",
+            "type": "text",
+            "id": "text"
+        },
+        {
+            "name": "email",
+            "value": "andreas.marschke@gmail.com",
+            "type": "email",
+            "id": "email"
+        },
+        {
+            "name": "comment",
+            "value": "Thank you for this dishwashing ninja!",
+            "type": "textarea",
+            "id": "textarea"
+        }
+    ]
+  </pre>
+  
+  <p class="perma-link">
+    The latest code and docs is available on <a href="http://github.com/lognormal/boomerang/">github.com/lognormal/boomerang</a>
+  </p>
+</body>
+</html>
