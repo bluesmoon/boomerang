@@ -1,14 +1,17 @@
 /**
 \file restiming.js
 Plugin to collect metrics from the W3C Resource Timing API.
-For more information about Resource Timing,
-see: http://www.w3.org/TR/resource-timing/
+For more information about Resource Timing, see:
+	http://www.w3.org/TR/resource-timing/
 */
 
 (function() {
 
 BOOMR = BOOMR || {};
 BOOMR.plugins = BOOMR.plugins || {};
+if (BOOMR.plugins.ResourceTiming) {
+	return;
+}
 
 var restricted = {
 	redirectStart: "rt_red_st",
@@ -22,39 +25,62 @@ var restricted = {
 	responseStart: "rt_res_st"
 },
 
+mapData = function(data) {
+	var resource, mapped, i, k;
+
+	if(!data || typeof data.getEntriesByType !== "function") {
+		return;
+	}
+
+	resource = data.getEntriesByType("resource");
+
+	if(!resource) {
+		return;
+	}
+
+	mapped = new Array(resource.length);
+
+	for(i = 0; i < resource.length; ++i) {
+		mapped[i] = {
+			rt_name: resource[i].name,
+			rt_in_type: resource[i].initiatorType,
+			rt_st: resource[i].startTime,
+			rt_dur: resource[i].duration,
+			rt_fet_st: resource[i].fetchStart,
+			rt_res_end: resource[i].responseEnd
+		};
+
+		for(k in restricted) {
+			if(restricted.hasOwnProperty(k) && resource[i][k] > 0) {
+				mapped[i][restricted[k]] = resource[i][k];
+			}
+		}
+	}
+
+	return mapped;
+},
+
 impl = {
 	complete: false,
 	done: function() {
-		var p = BOOMR.window.performance, r, data, i, k;
+		var data;
+
 		if(impl.complete) {
 			return;
 		}
+
 		BOOMR.removeVar("restiming");
-		if(p && typeof p.getEntriesByType === "function") {
-			r = p.getEntriesByType("resource");
-			if(r) {
-				BOOMR.info("Client supports Resource Timing API", "restiming");
-				data = {
-					restiming: new Array(r.length)
-				};
-				for(i = 0; i < r.length; ++i) {
-					data.restiming[i] = {
-						rt_name: r[i].name,
-						rt_in_type: r[i].initiatorType,
-						rt_st: r[i].startTime,
-						rt_dur: r[i].duration,
-						rt_fet_st: r[i].fetchStart,
-						rt_res_end: r[i].responseEnd
-					};
-					for(k in restricted) {
-						if(restricted.hasOwnProperty(k) && r[i][k] > 0) {
-							data.restiming[i][restricted[k]] = r[i][k];
-						}
-					}
-				}
-				BOOMR.addVar(data);
-			}
+
+		data = mapData(BOOMR.window.performance);
+		if(data) {
+			BOOMR.info("Client supports Resource Timing API", "restiming");
+
+			BOOMR.addVar({ restiming: data });
+			BOOMR.utils.forEachFrame(function (frame, indices) {
+				BOOMR.addFrameVar(indices, { restiming: mapData(frame.performance) });
+			});
 		}
+
 		this.complete = true;
 		BOOMR.sendBeacon();
 	}

@@ -88,7 +88,7 @@ BOOMR_check_doc_domain();
 // the parameter is the window
 (function(w) {
 
-var impl, boomr, d, myurl, createCustomEvent, dispatchEvent;
+var impl, boomr, d, myurl, createCustomEvent, dispatchEvent, cachedFrames;
 
 // This is the only block where we use document without the w. qualifier
 if(w.parent !== w
@@ -110,6 +110,8 @@ if(BOOMR.version) {
 
 BOOMR.version = "0.9";
 BOOMR.window = w;
+
+cachedFrames = {};
 
 if (!BOOMR.plugins) { BOOMR.plugins = {}; }
 
@@ -169,6 +171,57 @@ dispatchEvent = function(e_name, e_data) {
 		}
 	});
 };
+
+function addVarTo (object, name, value) {
+	if(typeof name === "string") {
+		object[name] = value;
+	}
+	else if(typeof name === "object") {
+		var o = name, k;
+		for(k in o) {
+			if(o.hasOwnProperty(k)) {
+				object[k] = o[k];
+			}
+		}
+	}
+}
+
+function getAccessibleFrames (parent) {
+	var document, url, result, frames, count, i, frame, frameDocument;
+
+	parent = parent || w;
+	document = parent.document;
+	url = document.URL;
+
+	if(cachedFrames[url]) {
+		return cachedFrames[url];
+	}
+
+	result = [];
+	frames = document.getElementsByTagName('iframe');
+	if(frames.length === 0) {
+		frames = document.getElementsByTagName('frame');
+	}
+	count = frames.length;
+
+	for(i = 0; i < count; ++i) {
+		try {
+			frame = frames[i];
+			frameDocument = frame.contentDocument || frame.contentWindow.document;
+
+			result.push({
+				url: frame.src || frameDocument.URL,
+				window: frame.contentWindow,
+				frames: getAccessibleFrames(frame.contentWindow)
+			});
+		} catch(e) {
+			BOOMR.debug("Ignoring exception in getAccessibleFrames [" + frame.src + "]: " + e.message);
+		}
+	}
+
+	cachedFrames[url] = result;
+	return result;
+}
 
 // impl is a private object not reachable from outside the BOOMR object
 // users can set properties by passing in to the init() method
@@ -535,6 +588,22 @@ boomr = {
 			});
 
 			form.submit();
+		},
+
+		forEachFrame: function forEachFrame(action, parent, indices) {
+			var frames, count, i, frame;
+
+			frames = getAccessibleFrames(parent);
+			count = frames.length;
+			indices = indices || [];
+
+			for(i = 0; i < count; ++i) {
+				frame = frames[i].window;
+				indices.push(i);
+				action(frame, indices);
+				forEachFrame(action, frame, indices);
+				indices.pop();
+			}
 		}
 	},
 
@@ -750,18 +819,59 @@ boomr = {
 		}
 	},
 
+
+	// Add data to `impl.vars`. If `name` is an object, copy properties from `name`.
 	addVar: function(name, value) {
-		if(typeof name === "string") {
-			impl.vars[name] = value;
-		}
-		else if(typeof name === "object") {
-			var o = name, k;
-			for(k in o) {
-				if(o.hasOwnProperty(k)) {
-					impl.vars[k] = o[k];
-				}
+		addVarTo(impl.vars, name, value);
+		return this;
+	},
+
+	// Frame-based corollary to `addVar`, which adds data to items in the
+	// `impl.vars.frames` array instead of directly onto `impl.vars`. That
+	// array has one item for each accessible frame, those items each having
+	// the same structure as the main `impl.vars` object. Nested frames
+	// will generate nested `frame` arrays.
+	// e.g.:
+	//     impl = {
+	//         vars: {
+	//             u: 'http://www.example.com/'
+	//             nt_fet_st: 1403585426765,
+	//             ...,
+	//             frames: [
+	//                 {
+	//                     u: 'http://www.example.com/frame'
+	//                     nt_fet_st: 1403585426765,
+	//                     ...
+	//                 },
+	//                 ...
+	//             ]
+	//         }
+	//     };
+	addFrameVar: function (indices, name, value) {
+		var count, i, frames, frameVars, index, frame;
+
+		count = indices.length;
+		frames = getAccessibleFrames();
+		frameVars = impl.vars;
+
+		for (i = 0; i < count; ++i) {
+			if (!frameVars.frames) {
+				frameVars.frames = new Array(frames.length);
 			}
+
+			index = indices[i];
+			frame = frames[index];
+			frames = frame.frames;
+			frameVars = frameVars.frames;
+
+			if (!frameVars[index]) {
+				frameVars[index] = { u: frame.url };
+			}
+
+			frameVars = frameVars[index];
 		}
+
+		addVarTo(frameVars, name, value);
 		return this;
 	},
 
