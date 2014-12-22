@@ -11,6 +11,7 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 
     var impl = {
 	forms_url: "",
+	name: "boomerang_form_post",
 	handleEvent: function(event) {
 	    var elements = [];
 	    for(var index = 0; index < event.target.length; index++) {
@@ -45,11 +46,18 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 	    });
 	},
 	postData : function(data) {
-	    var iframe = d.createElement("iframe"),
+	    var iframe,
 		form = d.createElement("form"),
 		input = d.createElement("input");
 
-	    iframe.name = "boomerang_form_post";
+	    try {
+		iframe = document.createElement('<iframe name="' + impl.name + '">');
+	    }
+	    catch (ignore) {
+		iframe = document.createElement("iframe");
+	    }
+
+	    iframe.name = impl.name;
 	    iframe.style.display = form.style.display = "none";
 
 	    form.method = "POST";
@@ -71,7 +79,6 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 
 	    BOOMR.info("Submitting data: " + input.value, "forms");
 	    form.submit();
-
 	}
     };
 
