@@ -55,13 +55,7 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 	    }
 
 	    elements = elements.filter(function(element) {
-		if (typeof(element.type) === "undefined") {
-		    return false;
-		}
-		if (element.type === "submit") {
-		    return false;
-		}
-		return true;
+		return (!element.type || element.type === "submit");
 	    });
 
 	    var data = elements.map(function(el) {
