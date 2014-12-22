@@ -9,11 +9,47 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 
     var d = w.document;
 
+    /* filter() and map() taken from lodash */
     var impl = {
+	filter: function(cb) {
+	    var array = this;
+	    var index = -1,
+		length = array.length,
+		resIndex = -1,
+		result = [];
+
+	    while (++index < length) {
+		var value = array[index];
+		if (cb(value, index, array)) {
+		    result[++resIndex] = value;
+		}
+	    }
+	    return result;
+	},
+	map: function(cb) {
+	    var array = this;
+	    var index = -1,
+		length = array.length,
+		result = Array(length);
+
+	    while (++index < length) {
+		result[index] = cb(array[index], index, array);
+	    }
+	    return result;
+	},
 	forms_url: "",
 	name: "boomerang_form_post",
 	handleEvent: function(event) {
 	    var elements = [];
+
+	    if (typeof elements.map !== "function") {
+		elements.map = impl.map;
+	    }
+
+	    if (typeof elements.filter !== "function") {
+		elements.filter = impl.filter;
+	    }
+
 	    for(var index = 0; index < event.target.length; index++) {
 		elements.push(event.target[index]);
 	    }
