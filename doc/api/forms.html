@@ -13,10 +13,10 @@
   <p>WARNING: Be aware that this plugin uses the HTTP POST-Method to send data to the beacon-server as it can not anticipate the size of the to be sent data entirely </p>
   <h2 id="config">Configuration</h2>
   <p>
-    The forms plugin configuration is contained in the <code>forms</code> namespace in the initial Boomerang configuration Object. 
+    The forms plugin configuration is contained in the <code>forms</code> namespace in the initial Boomerang configuration Object.
   </p>
   <p>See <a href="../howtos/howto-6.html">"Howto #6 &mdash; Configuring boomerang"</a> for more information on how to configure Boomerang</p>
-  
+
   <dl>
     <dt>forms_url</dt>
     <dd>
@@ -51,11 +51,11 @@
       a reference to the <code>BOOMR.plugins.forms</code> object, so you can chain methods.
     </p>
   </dd>
-  
+
 
   <h2 id="beacon">Beacon Parameters</h2>
   <p>
-    The following parameters are sent when a forms event is triggered. 
+    The following parameters are sent when a forms event is triggered.
   </p>
   <dl>
     <dt>form_data</dt><dd>An array of JSON.stringified values from the submitted form</dd>
@@ -95,7 +95,47 @@
         }
     ]
   </pre>
-  
+
+  <h2 id="developers">Implementation Details for Webmasters/Developers</h2>
+
+  <p>Please be aware that there are options provided by the plugin to also prevent you from
+    accidentally beaconing back the password or other personal details of your users. It <strong><em>does not</em></strong>
+    automatically filter out all personal information in your forms. As the webmaster however you may add HTML-Attributes
+    to your sensitive input elements and form elements to prevent them from being sent back</p>
+
+  <p>Specifically this plugin looks for attributes <code>data-sensitive</code> and <code>data-boomerang-sensitive</code> in your form elements
+    should you have tagged sensitive elements this way properly they will be filtered out by the plugin.
+  </p>
+
+  <p>An example implementation in your markup may look like this:</p>
+  <pre>
+&lt;form method="post" action="/login" <strong>data-sensitive="true"</strong>&gt;
+  &lt;!-- Your Login Form elements here --&gt;
+&lt;/form&gt;</pre>
+
+  <p>Above code would exclude the complete form from being beaconed back to your beacon-server</p>
+  <p>On the other hand you may have forms that contain some elements that you would prefer stayed between
+    your customer and the form submi and would not be send as a beacon. But the form also has data you'd
+    still like to have. An example would be the a comment section:</p>
+
+  <pre>
+    &lt;form method="post" action="/post/20/comment"&gt;
+      &lt;input type="text" class="form-control" name="name" value="" placeholder=""  <strong>data-sensitive="true"</strong>/&gt;
+      &lt;input type="email" class="form-control" name="email" value="" placeholder="" <strong>data-sensitive="true"</strong>/&gt;
+      &lt;select name="rating"&gt;
+	&lt;option&gt;1&lt;/option&gt;
+	&lt;option&gt;2&lt;/option&gt;
+	&lt;option&gt;3&lt;/option&gt;
+	&lt;option&gt;4&lt;/option&gt;
+	&lt;option&gt;5&lt;/option&gt;
+      &lt;/select&gt;
+      &lt;textarea name="comment" id="comment" rows="30" cols="60" <strong>data-sensitive="true"</strong>&gt;&lt;/textarea&gt;
+    &lt;/form&gt;</pre>
+
+  <p>In this example we would only beacon back the rating without any further data on the person sending this rating or
+    their textual commentary since these are things your blogging engine may be better at handling than your
+    beacon-server.</p>
+
   <p class="perma-link">
     The latest code and docs is available on <a href="http://github.com/lognormal/boomerang/">github.com/lognormal/boomerang</a>
   </p>
