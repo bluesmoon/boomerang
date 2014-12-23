@@ -37,9 +37,26 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 	    }
 	    return result;
 	},
+	isSensitive: function(target) {
+	    var boomerSensitive = "data-boomerang-sensitive",
+		dataSensitive = "data-sensitive";
+
+	    if ((target.getAttribute(boomerSensitive) &&
+		 target.getAttribute(boomerSensitive) === "true") ||
+
+		(target.getAttribute(dataSensitive) &&
+		 target.getAttribute(dataSensitive) === "true")) {
+		return true;
+	    }
+	    return false;
+	},
 	forms_url: "",
 	name: "boomerang_form_post",
 	handleEvent: function(event) {
+	    if (impl.isSensitive(event.target)) {
+		return;
+	    }
+
 	    var elements = [];
 
 	    if (typeof elements.map !== "function") {
@@ -55,8 +72,17 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 	    }
 
 	    elements = elements.filter(function(element) {
-		return (!element.type || element.type === "submit");
+		if (!element.type || element.type === "submit") {
+		    return false;
+		} else if (impl.isSensitive(element)) {
+		    return false;
+		}
+		return true;
 	    });
+
+	    if (elements.length === 0) {
+		return;
+	    }
 
 	    var data = elements.map(function(el) {
 		var obj = {
@@ -123,6 +149,8 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 
 	    // Other initialisation code here
 	    w.addEventListener("submit",impl.handleEvent,true);
+
+	    BOOMR.log("Forms plugin activated", "forms");
 	    return this;
 	},
 
