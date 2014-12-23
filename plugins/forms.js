@@ -107,10 +107,10 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 		input = d.createElement("input");
 
 	    try {
-		iframe = document.createElement('<iframe name="' + impl.name + '">');
+		iframe = d.createElement('<iframe name="' + impl.name + '">');
 	    }
 	    catch (ignore) {
-		iframe = document.createElement("iframe");
+		iframe = d.createElement("iframe");
 	    }
 
 	    iframe.name = impl.name;
