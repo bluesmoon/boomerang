@@ -11,6 +11,8 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 
     /* filter() and map() taken from lodash */
     var impl = {
+	forms_url: "",
+	name: "boomerang_form_post",
 	filter: function(cb) {
 	    var array = this;
 	    var index = -1,
@@ -50,9 +52,9 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 	    }
 	    return false;
 	},
-	forms_url: "",
-	name: "boomerang_form_post",
 	handleEvent: function(event) {
+	    BOOMR.debug("Handling Form Submission", "forms");
+
 	    if (impl.isSensitive(event.target)) {
 		return;
 	    }
@@ -81,25 +83,28 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 	    });
 
 	    if (elements.length === 0) {
+		BOOMR.warn("No elements found, will not send a Forms!", "forms");
 		return;
 	    }
 
-	    var data = elements.map(function(el) {
+	    var formData = elements.map(function(el) {
 		var obj = {
 		    name: el.name,
 		    value: el.value,
 		    type: el.type,
 		    id: el.type
 		};
-
 		return obj;
 	    });
 
-	    impl.postData({
+	    var form = {
 		id: event.target.id,
-		"class": event.target.classList,
-		form_data: data
-	    });
+		tag: event.target.tagName,
+		classes: event.target.classList || event.target.className.split(" "),
+		data: formData
+	    };
+
+	    impl.postData(form);
 	},
 	postData : function(data) {
 	    var iframe,
@@ -135,6 +140,11 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 
 	    BOOMR.info("Submitting data: " + input.value, "forms");
 	    form.submit();
+	},
+	ready: function() {
+	    w = BOOMR.window;
+	    d = w.document;
+	    d.addEventListener("submit", impl.handleEvent);
 	}
     };
 
@@ -142,15 +152,13 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 	init: function(config) {
 	    var i, properties = ["forms_url",      // URL to beacon
 				 "onbeforeunload",
-				"onsubmit"]; // Send the beacon when page is closed?
-
+				 "onsubmit"]; // Send the beacon when page is closed?
 	    // This block is only needed if you actually have user configurable properties
 	    BOOMR.utils.pluginConfig(impl, config,"forms", properties);
+	    BOOMR.debug("Forms Plugin initialized with Forms URL:\"" + impl.forms_url + "\"", "forms");
 
-	    // Other initialisation code here
-	    w.addEventListener("submit",impl.handleEvent,true);
+	    BOOMR.subscribe("page_ready", impl.ready, null, impl);
 
-	    BOOMR.log("Forms plugin activated", "forms");
 	    return this;
 	},
 
@@ -160,4 +168,4 @@ A plugin beaconing submitted forms back to the server seperate from the applicat
 	}
     };
 
-}(window));
+}(this));
