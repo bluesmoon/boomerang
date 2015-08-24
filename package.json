@@ -23,7 +23,8 @@
     "karma-phantomjs-launcher": "^0.1.4"
   },
   "scripts": {
-    "test": "grunt eslint"
+    "test": "grunt eslint",
+    "test-travis": "node_modules/.bin/grunt test"
   },
   "repository": {
     "type": "git",
