@@ -335,6 +335,14 @@ BOOMR_check_doc_domain();
 
 		url: myurl,
 
+		session: {
+			// You can disable all cookies by setting site_domain to a falsy value
+			domain: null,
+			ID: (function b(a){return a?(a^Math.random()*16>>a/4).toString(16):([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,b)})(),
+			start: undefined,
+			length: 0
+		},
+		
 		// Utility functions
 		utils: {
 			objectToString: function(o, separator, nest_level) {
