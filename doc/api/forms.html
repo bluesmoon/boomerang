@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+  <title>The forms API</title>
+  <link rel="stylesheet" type="text/css" href="../boomerang-docs.css"
+</head>
+<body>
+  <span style="float:right;"><a href="../">All Docs</a> | <a href="index.html">Index</a></span>
+  <h1>The Forms Plugin</h1>
+  <p>The <code>forms</code> Plugin tracks all form submissions on a page and beacons them to a dedicated endpoint on your beacon-server.</p>
+  <p>The <code>forms</code> API is encapsulated in the <code>BOOMR.plugins.forms</code> namespace </p>
+  <p>WARNING: Be aware that this plugin uses the HTTP POST-Method to send data to the beacon-server as it can not anticipate the size of the to be sent data entirely </p>
+  <h2 id="config">Configuration</h2>
+  <p>
+    The forms plugin configuration is contained in the <code>forms</code> namespace in the initial Boomerang configuration Object.
+  </p>
+  <p>See <a href="../howtos/howto-6.html">"Howto #6 &mdash; Configuring boomerang"</a> for more information on how to configure Boomerang</p>
+
+  <dl>
+    <dt>forms_url</dt>
+    <dd>
+      <strong>[required]</strong>
+      The Url the form submission events are supposed to be sent to. You need to specify this.
+    </dd>
+  </dl>
+
+<h2 id="methods">Methods</h2>
+
+<dl class="api">
+
+  <dt>init(oConfig)</dt>
+  <dd>
+    <p>
+      Called by the <a href="BOOMR.html#init">BOOMR.init()</a> method to configure the forms plugin.
+    </p>
+    <pre>
+      BOOMR.init({
+        forms: {
+          forms_url: "http://&lt;your beacon server&gt;/forms"
+        }
+      });
+    </pre>
+    <h3>Parameters</h3>
+    <dl>
+      <dt>oConfig</dt>
+      <dd>The configuration object passed in via <code>BOOMR.init()</code>.  See the <a href="#config">Configuration section</a> for details.
+    </dl>
+    <h3>Returns</h3>
+    <p>
+      a reference to the <code>BOOMR.plugins.forms</code> object, so you can chain methods.
+    </p>
+  </dd>
+
+
+  <h2 id="beacon">Beacon Parameters</h2>
+  <p>
+    The following parameters are sent when a forms event is triggered.
+  </p>
+  <dl>
+    <dt>form_data</dt><dd>An array of JSON.stringified values from the submitted form</dd>
+  </dl>
+
+  <h2 id="form_data"></h2>
+  <p>
+    The following parameters are contained in the Object which is part of the submitted form_data Array
+  </p>
+  <dl>
+    <dt>name</dt><dd>The name attribute of the submitted input form element</dd>
+    <dt>value</dt><dd>The value of the submitted input form element</dd>
+    <dt>type</dt><dd>The type of element to be submit</dd>
+    <dt>id</dt><dd>The id of the element</dd>
+  </dl>
+
+  <p>For a simple input form the returned values may look like this:</p>
+  <pre>
+    "form_data": [
+        {
+            "name": "name",
+            "value": "Andreas Marschke",
+            "type": "text",
+            "id": "text"
+        },
+        {
+            "name": "email",
+            "value": "andreas.marschke@gmail.com",
+            "type": "email",
+            "id": "email"
+        },
+        {
+            "name": "comment",
+            "value": "Thank you for this dishwashing ninja!",
+            "type": "textarea",
+            "id": "textarea"
+        }
+    ]
+  </pre>
+
+  <h2 id="developers">Implementation Details for Webmasters/Developers</h2>
+
+  <p>Please be aware that there are options provided by the plugin to also prevent you from
+    accidentally beaconing back the password or other personal details of your users. It <strong><em>does not</em></strong>
+    automatically filter out all personal information in your forms. As the webmaster however you may add HTML-Attributes
+    to your sensitive input elements and form elements to prevent them from being sent back</p>
+
+  <p>Specifically this plugin looks for attributes <code>data-sensitive</code> and <code>data-boomerang-sensitive</code> in your form elements
+    should you have tagged sensitive elements this way properly they will be filtered out by the plugin.
+  </p>
+
+  <p>An example implementation in your markup may look like this:</p>
+  <pre>
+&lt;form method="post" action="/login" <strong>data-sensitive="true"</strong>&gt;
+  &lt;!-- Your Login Form elements here --&gt;
+&lt;/form&gt;</pre>
+
+  <p>Above code would exclude the complete form from being beaconed back to your beacon-server</p>
+  <p>On the other hand you may have forms that contain some elements that you would prefer stayed between
+    your customer and the form submi and would not be send as a beacon. But the form also has data you'd
+    still like to have. An example would be the a comment section:</p>
+
+  <pre>
+    &lt;form method="post" action="/post/20/comment"&gt;
+      &lt;input type="text" class="form-control" name="name" value="" placeholder=""  <strong>data-sensitive="true"</strong>/&gt;
+      &lt;input type="email" class="form-control" name="email" value="" placeholder="" <strong>data-sensitive="true"</strong>/&gt;
+      &lt;select name="rating"&gt;
+	&lt;option&gt;1&lt;/option&gt;
+	&lt;option&gt;2&lt;/option&gt;
+	&lt;option&gt;3&lt;/option&gt;
+	&lt;option&gt;4&lt;/option&gt;
+	&lt;option&gt;5&lt;/option&gt;
+      &lt;/select&gt;
+      &lt;textarea name="comment" id="comment" rows="30" cols="60" <strong>data-sensitive="true"</strong>&gt;&lt;/textarea&gt;
+    &lt;/form&gt;</pre>
+
+  <p>In this example we would only beacon back the rating without any further data on the person sending this rating or
+    their textual commentary since these are things your blogging engine may be better at handling than your
+    beacon-server.</p>
+
+  <p class="perma-link">
+    The latest code and docs is available on <a href="http://github.com/lognormal/boomerang/">github.com/lognormal/boomerang</a>
+  </p>
+</body>
+</html>
