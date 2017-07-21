@@ -1,6 +1,6 @@
-Some code Copyright (c) 2011, Yahoo! Inc.  All rights reserved.  
-Some code Copyright (c) 2012, Log-Normal Inc.  All rights reserved.  
-Most code Copyright (c) 2012-2016 SOASTA, Inc. All rights reserved.  
+Some code Copyright (c) 2011, Yahoo! Inc.  All rights reserved.
+Some code Copyright (c) 2011-2012, Log-Normal Inc.  All rights reserved.
+Most code Copyright (c) 2012-2016 SOASTA, Inc. All rights reserved.
 
 Copyrights licensed under the BSD License. See the accompanying LICENSE.txt file for terms.
 
@@ -50,13 +50,14 @@ You could also include any other code you need.  For example, I include a timer 
 
 I call my plugin `zzz_init.js` to remind me to include it last in the plugin list
 
-### 2. Build boomerang using this plugin as the last one
+### 2. Build boomerang
+The build process picks up all the plugins referenced in the `plugins.json` file. To change the plugins included in the boomerang build, change the contents of the file to your needs.
 
 ```bash
-make PLUGINS="list.js of.js plugins.js zzz_init.js" MINIFIER="/path/to/your/js-minifier"
+grunt clean build
 ```
 
-This should create `boomerang-<version>.js`
+This creates deployable boomerang versions in the `build` directory, e.g. `build/boomerang-<version>.min.js`.
 
 Install this file on your web server or origin server where your CDN can pick it up.  Set a far future max-age header for it.  This file will never change.
 
@@ -109,7 +110,7 @@ For boomerang, this is the code you'll include:
   doc.open()._l = function() {
     var js = this.createElement("script");
     if(dom) this.domain = dom;
-    js.id = "js-iframe-async";
+    js.id = "boomr-if-as";
     js.src = 'http://your-cdn.host.com/path/to/boomerang-<version>.js';
     this.body.appendChild(js);
   };
@@ -150,6 +151,37 @@ Note that this only works on browsers that support the CustomEvent interface, wh
 Opera (including Android, but not Opera Mini), Safari (including iOS), IE 6+ (but see the code above for the special way to listen for the event on IE6, 7 & 8).
 
 Boomerang also fires the `onBeforeBoomerangBeacon` and `onBoomerangBeacon` events just before and during beaconing.
+
+#### 3.4. Method queue pattern
+
+If you want to call a public method that lives on `BOOMR`, but either don't know if Boomerang has loaded or don't want to wait, you can use the method queue pattern!
+
+Instead of:
+```javascript
+BOOMR.addVar('myVarName', 'myVarValue')
+```
+
+... you can write:
+```javascript
+BOOMR_mq = window.BOOMR_mq || [];
+BOOMR_mq.push(['addVar', 'myVarName', 'myVarValue']);
+```
+
+Or, if you care about the return value, instead of:
+```javascript
+var hasMyVar = BOOMR.hasVar('myVarName');
+```
+... you can write:
+```javascript
+var hasMyVar;
+BOOMR_mq = window.BOOMR_mq || [];
+BOOMR_mq.push({
+   arguments: ['hasVar', 'myVarName'],
+   callback: function(returnValue) {
+     hasMyVar = returnValue;
+   }
+});
+```
 
 docs
 ---

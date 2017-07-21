@@ -4,11 +4,61 @@
 	    initialRouteChangeCompleted = false,
 	    lastLocationChange = "",
 	    autoXhrEnabled = false,
-	    supported = [];
+	    firstSpaNav = true,
+	    routeFilter = false,
+	    routeChangeWaitFilter = false,
+	    supported = [],
+	    latestResource,
+	    waitingOnHardMissedComplete = false;
 
 	if (BOOMR.plugins.SPA) {
 		return;
 	}
+
+	var impl = {
+		/**
+		 * Called after a SPA Hard navigation that missed the route change
+		 * completes.
+		 *
+		 * We may want to fix-up the timings of the SPA navigation if there was
+		 * any other activity after onload.
+		 *
+		 * If there was not activity after onload, using the timings for
+		 * onload from NavigationTiming.
+		 *
+		 * If there was activity after onload, use the end time of the latest
+		 * resource.
+		 */
+		spaHardMissedOnComplete: function(resource) {
+			waitingOnHardMissedComplete = false;
+
+			var p = BOOMR.getPerformance(), startTime, stopTime;
+
+			// gather start times from NavigationTiming if available
+			if (p && p.timing && p.timing.navigationStart && p.timing.loadEventStart) {
+				startTime = p.timing.navigationStart;
+				stopTime = p.timing.loadEventStart;
+			}
+			else {
+				startTime = BOOMR.t_start;
+			}
+
+			// note that we missed the route change on the beacon for debugging
+			BOOMR.addVar("spa.missed", "1");
+
+			// ensure t_done is the time we've specified
+			BOOMR.plugins.RT.clearTimer("t_done");
+
+			// always use the start time of navigationStart
+			resource.timing.requestStart = startTime;
+
+			if (resource.resources.length === 0 && stopTime) {
+				// No other resources were fetched, so set the end time
+				// to NavigationTiming's performance.loadEventStart (instead of 'now')
+				resource.timing.loadEventEnd = stopTime;
+			}
+		}
+	};
 
 	//
 	// Exports
@@ -20,7 +70,7 @@
 		 * @returns {boolean} True if the plugin is complete
 		 */
 		is_complete: function() {
-			return true;
+			return !waitingOnHardMissedComplete;
 		},
 		/**
 		 * Called to initialize the plugin via BOOMR.init()
@@ -31,7 +81,7 @@
 			if (config && config.instrument_xhr) {
 				autoXhrEnabled = config.instrument_xhr;
 
-				// if AutoXHR is enabled via config.js, and we've already had
+				// if AutoXHR is enabled, and we've already had
 				// a route change, make sure to turn AutoXHR back on
 				if (initialRouteChangeStarted && autoXhrEnabled) {
 					BOOMR.plugins.AutoXHR.enableAutoXhr();
@@ -55,33 +105,58 @@
 			return supported;
 		},
 		/**
+		 * Fired when onload happens (or immediately if onload has already fired)
+		 * to monitor for additional resources for a SPA Hard navigation
+		 */
+		onLoadSpaHardMissed: function() {
+			if (initialRouteChangeStarted) {
+				// we were told the History event was missed, but it happened anyways
+				// before onload
+				return;
+			}
+
+			// We missed the initial route change (we loaded too slowly), so we're too
+			// late to monitor for new DOM elements.  Don't hold the initial page load beacon.
+			initialRouteChangeCompleted = true;
+
+			if (autoXhrEnabled) {
+				// re-enable AutoXHR if it's enabled
+				BOOMR.plugins.AutoXHR.enableAutoXhr();
+			}
+
+			// ensure the beacon is held until this SPA hard beacon is ready
+			waitingOnHardMissedComplete = true;
+
+			// Trigger a route change
+			BOOMR.plugins.SPA.route_change(impl.spaHardMissedOnComplete);
+		},
+		/**
 		 * Called by a framework when it has hooked into the target SPA
 		 *
 		 * @param {boolean} hadRouteChange True if a route change has already fired
+		 * @param {Object} options Additional options
 		 *
 		 * @returns {BOOMR} Boomerang object
 		 */
-		hook: function(hadRouteChange) {
+		hook: function(hadRouteChange, options) {
+			options = options || {};
+
 			if (hooked) {
 				return this;
 			}
 
 			if (hadRouteChange) {
-				if (autoXhrEnabled) {
-					// re-enable AutoXHR if it's enabled in config.js
-					BOOMR.plugins.AutoXHR.enableAutoXhr();
-				}
+				// kick off onLoadSpaHardMissed once onload has fired, or immediately
+				// if onload has already fired
+				BOOMR.attach_page_ready(this.onLoadSpaHardMissed);
+			}
 
-				// We missed the initial route change (we loaded too slowly), so we're too
-				// late to monitor for new DOM elements.  Don't hold the initial page load beacon.
-				initialRouteChangeCompleted = true;
+			if (typeof options.routeFilter === "function") {
+				routeFilter = options.routeFilter;
+			}
 
-				// Tell BOOMR this is a SPA navigation still
-				BOOMR.addVar("http.initiator", "spa");
-
-				// Since we held the original beacon (autorun=false), we need to tell BOOMR
-				// that the page has loaded OK.
-				BOOMR.page_ready();
+			if (typeof options.routeChangeWaitFilter === "function") {
+				routeChangeWaitFilter = options.routeChangeWaitFilter;
 			}
 
 			hooked = true;
@@ -90,8 +165,22 @@
 		},
 		/**
 		 * Called by a framework when a route change has happened
+		 *
+		 * @param {function} onComplete Called on completion
 		 */
-		route_change: function() {
+		route_change: function(onComplete) {
+			// if we have a routeFilter, see if they want to track this route
+			if (routeFilter) {
+				try {
+					if (!routeFilter.apply(null, arguments)) {
+						return;
+					}
+				}
+				catch (e) {
+					BOOMR.addError(e, "SPA.route_change.routeFilter");
+				}
+			}
+
 			// note we've had at least one route change
 			initialRouteChangeStarted = true;
 
@@ -107,22 +196,47 @@
 				timing: {
 					requestStart: requestStart
 				},
-				initiator: "spa",
+				initiator: firstSpaNav ? "spa_hard" : "spa",
 				url: url
 			};
 
-			if (!initialRouteChangeCompleted) {
+			firstSpaNav = false;
+
+			if (!initialRouteChangeCompleted || typeof onComplete === "function") {
 				// if we haven't completed our initial SPA navigation yet (this is a hard nav), wait
 				// for all of the resources to be downloaded
-				resource.onComplete = function() {
-					initialRouteChangeCompleted = true;
+				resource.onComplete = function(onCompleteResource) {
+					if (!initialRouteChangeCompleted) {
+						initialRouteChangeCompleted = true;
+
+						// fire a SPA navigation completed event so that other plugins can act on it
+						BOOMR.fireEvent("spa_navigation");
+					}
+
+					if (typeof onComplete === "function") {
+						onComplete(onCompleteResource);
+					}
 				};
+			}
+
+			// if we have a routeChangeWaitFilter, make sure AutoXHR waits on the custom event
+			if (routeChangeWaitFilter) {
+				try {
+					if (routeChangeWaitFilter.apply(null, arguments)) {
+						resource.wait = true;
+
+						latestResource = resource;
+					}
+				}
+				catch (e) {
+					BOOMR.addError(e, "SPA.route_change.routeChangeWaitFilter");
+				}
 			}
 
 			// start listening for changes
 			resource.index = BOOMR.plugins.AutoXHR.getMutationHandler().addEvent(resource);
 
-			// re-enable AutoXHR if it's enabled in config.js
+			// re-enable AutoXHR if it's enabled
 			if (autoXhrEnabled) {
 				BOOMR.plugins.AutoXHR.enableAutoXhr();
 			}
@@ -134,6 +248,24 @@
 		 */
 		last_location: function(url) {
 			lastLocationChange = url;
+		},
+		current_spa_nav: function() {
+			return !initialRouteChangeCompleted ? "spa_hard" : "spa";
+		},
+		/**
+		 * Called by the SPA consumer if they have a routeChangeWaitFilter and are manually
+		 * triggering navigation complete events.
+		 */
+		wait_complete: function() {
+			if (latestResource) {
+				latestResource.wait = false;
+
+				if (latestResource.waitComplete) {
+					latestResource.waitComplete();
+				}
+
+				latestResource = null;
+			}
 		}
 	};
 

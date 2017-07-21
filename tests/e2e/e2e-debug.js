@@ -7,8 +7,9 @@
 var fs = require("fs");
 var chai = require("chai");
 var assert = chai.assert;
+var path = require("path");
 
-var testsFile = "./e2e-debug.json";
+var testsFile = path.join(__dirname, "e2e-debug.json");
 
 var tests = [];
 
@@ -21,13 +22,13 @@ var i;
 //
 // Functions
 //
-function run(path, file) {
-	describe(path, function() {
+function run(testPath, file) {
+	describe(testPath, function() {
 		var fileName = file + ".html";
-		it("Should pass " + path + "/" + fileName, function(done) {
+		it("Should pass " + testPath + "/" + fileName, function(done) {
 			var logCount = 0;
 
-			browser.driver.get("http://localhost:4002/pages/" + path + "/" + fileName);
+			browser.driver.get("http://localhost:4002/pages/" + testPath + "/" + fileName);
 
 			setInterval(function() {
 				browser.manage().logs().get("browser").then(function(browserLog) {
@@ -49,7 +50,10 @@ function run(path, file) {
 			browser.driver.executeScript("return BOOMR_test.isComplete()").then(function(complete){
 				assert.equal(complete, true, "BOOMR_test.isComplete()");
 				browser.driver.executeScript("return BOOMR_test.getTestFailureMessages()").then(function(testFailures){
-					assert.equal(testFailures.length, 0, "BOOMR_test.getTestFailures(): " + JSON.stringify(testFailures));
+					if (testFailures.length > 0) {
+						throw new Error(testFailures);
+					}
+
 					done();
 				});
 			});
@@ -65,5 +69,8 @@ function run(path, file) {
 //
 for (i = 0; i < tests.length; i++) {
 	var data = tests[i];
+
+	console.log("Running " + data.path + "/" + data.file);
+
 	run(data.path, data.file);
 }

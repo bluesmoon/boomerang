@@ -18,8 +18,8 @@
  */
 
 (function() {
-/*jslint bitwise: true */
-/*global unescape*/
+	/*jslint bitwise: true */
+	/*global unescape*/
 
 	"use strict";
 
@@ -35,7 +35,7 @@
 	*/
 	function safe_add(x, y) {
 		var lsw = (x & 0xFFFF) + (y & 0xFFFF),
-			msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+		    msw = (x >> 16) + (y >> 16) + (lsw >> 16);
 		return (msw << 16) | (lsw & 0xFFFF);
 	}
 
@@ -74,10 +74,10 @@
 		x[(((len + 64) >>> 9) << 4) + 14] = len;
 
 		var i, olda, oldb, oldc, oldd,
-			a =  1732584193,
-			b = -271733879,
-			c = -1732584194,
-			d =  271733878;
+		    a =  1732584193,
+		    b = -271733879,
+		    c = -1732584194,
+		    d =  271733878;
 
 		for (i = 0; i < x.length; i += 16) {
 			olda = a;
@@ -85,7 +85,7 @@
 			oldc = c;
 			oldd = d;
 
-			a = md5_ff(a, b, c, d, x[i],	   7, -680876936);
+			a = md5_ff(a, b, c, d, x[i],       7, -680876936);
 			d = md5_ff(d, a, b, c, x[i +  1], 12, -389564586);
 			c = md5_ff(c, d, a, b, x[i +  2], 17,  606105819);
 			b = md5_ff(b, c, d, a, x[i +  3], 22, -1044525330);
@@ -105,7 +105,7 @@
 			a = md5_gg(a, b, c, d, x[i +  1],  5, -165796510);
 			d = md5_gg(d, a, b, c, x[i +  6],  9, -1069501632);
 			c = md5_gg(c, d, a, b, x[i + 11], 14,  643717713);
-			b = md5_gg(b, c, d, a, x[i],	  20, -373897302);
+			b = md5_gg(b, c, d, a, x[i],      20, -373897302);
 			a = md5_gg(a, b, c, d, x[i +  5],  5, -701558691);
 			d = md5_gg(d, a, b, c, x[i + 10],  9,  38016083);
 			c = md5_gg(c, d, a, b, x[i + 15], 14, -660478335);
@@ -128,7 +128,7 @@
 			c = md5_hh(c, d, a, b, x[i +  7], 16, -155497632);
 			b = md5_hh(b, c, d, a, x[i + 10], 23, -1094730640);
 			a = md5_hh(a, b, c, d, x[i + 13],  4,  681279174);
-			d = md5_hh(d, a, b, c, x[i],	  11, -358537222);
+			d = md5_hh(d, a, b, c, x[i],      11, -358537222);
 			c = md5_hh(c, d, a, b, x[i +  3], 16, -722521979);
 			b = md5_hh(b, c, d, a, x[i +  6], 23,  76029189);
 			a = md5_hh(a, b, c, d, x[i +  9],  4, -640364487);
@@ -136,7 +136,7 @@
 			c = md5_hh(c, d, a, b, x[i + 15], 16,  530742520);
 			b = md5_hh(b, c, d, a, x[i +  2], 23, -995338651);
 
-			a = md5_ii(a, b, c, d, x[i],	   6, -198630844);
+			a = md5_ii(a, b, c, d, x[i],       6, -198630844);
 			d = md5_ii(d, a, b, c, x[i +  7], 10,  1126891415);
 			c = md5_ii(c, d, a, b, x[i + 14], 15, -1416354905);
 			b = md5_ii(b, c, d, a, x[i +  5], 21, -57434055);
@@ -166,7 +166,7 @@
 	*/
 	function binl2rstr(input) {
 		var i,
-			output = "";
+		    output = "";
 		for (i = 0; i < input.length * 32; i += 8) {
 			output += String.fromCharCode((input[i >> 5] >>> (i % 32)) & 0xFF);
 		}
@@ -179,7 +179,7 @@
 	*/
 	function rstr2binl(input) {
 		var i,
-			output = [];
+		    output = [];
 		output[(input.length >> 2) - 1] = undefined;
 		for (i = 0; i < output.length; i += 1) {
 			output[i] = 0;
@@ -202,10 +202,10 @@
 	*/
 	function rstr_hmac_md5(key, data) {
 		var i,
-			bkey = rstr2binl(key),
-			ipad = [],
-			opad = [],
-			hash;
+		    bkey = rstr2binl(key),
+		    ipad = [],
+		    opad = [],
+		    hash;
 		ipad[15] = opad[15] = undefined;
 		if (bkey.length > 16) {
 			bkey = binl_md5(bkey, key.length * 8);
@@ -223,9 +223,9 @@
 	*/
 	function rstr2hex(input) {
 		var hex_tab = "0123456789abcdef",
-			output = "",
-			x,
-			i;
+		    output = "",
+		    x,
+		    i;
 		for (i = 0; i < input.length; i += 1) {
 			x = input.charCodeAt(i);
 			output += hex_tab.charAt((x >>> 4) & 0x0F) +

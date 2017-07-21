@@ -1,4 +1,4 @@
-/* eslint-env node*/
+/*eslint-env node*/
 module.exports = function(config) {
 	config.set({
 		basePath: "./",
@@ -12,6 +12,13 @@ module.exports = function(config) {
 
 		frameworks: ["mocha"],
 		reporters: ["progress", "coverage", "tap"],
+		plugins: [
+			"karma-coverage",
+			"karma-mocha",
+			"karma-tap-reporter",
+			"karma-mocha-reporter",
+			"karma-phantomjs-launcher"
+		],
 		browsers: ["PhantomJS"],
 
 		coverageReporter: {

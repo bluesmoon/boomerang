@@ -21,8 +21,10 @@ function getFiles(dir, nameMatch, callback) {
 			var files = matches.map(function(match) {
 				return path.join(dir, match);
 			}).filter(function(match) {
-				return fs.statSync(match).isFile()
-					&& (nameMatch === "" || match.indexOf(nameMatch) !== -1);
+				return fs.statSync(match).isFile() &&
+					!match.endsWith(".swp") &&
+					!match.endsWith("~") &&
+					(nameMatch === "" || match.indexOf(nameMatch) !== -1);
 			});
 
 			cb(null, files);
@@ -189,7 +191,11 @@ module.exports = function() {
 						// Index.html
 						//
 						indexHtml += "<p><a href='" + templateFileName + "'>" + templateFileName + "</a></p>";
-						indexHtml += "<iframe src='" + templateFileName + "' style='width: 100%'></iframe>\n";
+
+						// only show IFRAMEs if there's not a ton of htem
+						if (files.length <= 5) {
+							indexHtml += "<iframe src='" + templateFileName + "' style='width: 100%'></iframe>\n";
+						}
 
 						// if the .js file exists, copy that too
 						if (grunt.file.exists(jsFile)) {
@@ -210,7 +216,7 @@ module.exports = function() {
 				grunt.file.write(rootIndexFile, rootIndexHtml);
 
 				// test definitions
-				grunt.file.write(e2eJsonPath, JSON.stringify(testDefinitions));
+				grunt.file.write(e2eJsonPath, JSON.stringify(testDefinitions, null, 2));
 
 				cb(err, opts);
 			});

@@ -1,43 +1,55 @@
-/*
- * Copyright (c) 2011, Yahoo! Inc.  All rights reserved.
- * Copyright (c) 2012, Log-Normal, Inc.  All rights reserved.
- * Copyright (c) 2014, SOASTA, Inc. All rights reserved.
+/**
+ * @copyright (c) 2011, Yahoo! Inc.  All rights reserved.
+ * @copyright (c) 2012, Log-Normal, Inc.  All rights reserved.
+ * @copyright (c) 2012-2016, SOASTA, Inc. All rights reserved.
  * Copyrights licensed under the BSD License. See the accompanying LICENSE.txt file for terms.
  */
 
 /**
-\file boomerang.js
-boomerang measures various performance characteristics of your user's browsing
-experience and beacons it back to your server.
-
-\details
-To use this you'll need a web site, lots of users and the ability to do
-something with the data you collect.  How you collect the data is up to
-you, but we have a few ideas.
+ * @namespace Boomerang
+ * @desc
+ * boomerang measures various performance characteristics of your user's browsing
+ * experience and beacons it back to your server.
+ *
+ * To use this you'll need a web site, lots of users and the ability to do
+ * something with the data you collect.  How you collect the data is up to
+ * you, but we have a few ideas.
 */
 
-// Measure the time the script started
-// This has to be global so that we don't wait for the entire
-// BOOMR function to download and execute before measuring the
-// time.  We also declare it without `var` so that we can later
-// `delete` it.  This is the only way that works on Internet Explorer
+/**
+ * @memberof Boomerang
+ * @type {TimeStamp}
+ * @desc
+ * Measure the time the script started
+ * This has to be global so that we don't wait for the entire
+ * BOOMR function to download and execute before measuring the
+ * time.  We also declare it without `var` so that we can later
+ * `delete` it.  This is the only way that works on Internet Explorer
+*/
 BOOMR_start = new Date().getTime();
 
 /**
- Check the value of document.domain and fix it if incorrect.
- This function is run at the top of boomerang, and then whenever
- init() is called.  If boomerang is running within an iframe, this
- function checks to see if it can access elements in the parent
- iframe.  If not, it will fudge around with document.domain until
- it finds a value that works.
-
- This allows customers to change the value of document.domain at
- any point within their page's load process, and we will adapt to
- it.
+ * @function
+ * @desc
+ * Check the value of document.domain and fix it if incorrect.
+ * This function is run at the top of boomerang, and then whenever
+ * init() is called.  If boomerang is running within an iframe, this
+ * function checks to see if it can access elements in the parent
+ * iframe.  If not, it will fudge around with document.domain until
+ * it finds a value that works.
+ *
+ * This allows site owners to change the value of document.domain at
+ * any point within their page's load process, and we will adapt to
+ * it.
+ * @param {string} domain - domain name as retrieved from page url
  */
 function BOOMR_check_doc_domain(domain) {
 	/*eslint no-unused-vars:0*/
 	var test;
+
+	if (!window) {
+		return;
+	}
 
 	// If domain is not passed in, then this is a global call
 	// domain is only passed in if we call ourselves, so we
@@ -57,7 +69,7 @@ function BOOMR_check_doc_domain(domain) {
 					BOOMR.boomerang_frame.document.domain = BOOMR.window.document.domain;
 				}
 			}
-			catch(err) {
+			catch (err) {
 				if (!BOOMR.isCrossOriginError(err)) {
 					BOOMR.addError(err, "BOOMR_check_doc_domain.domainFix");
 				}
@@ -101,9 +113,9 @@ BOOMR_check_doc_domain();
 	var impl, boomr, d, myurl, createCustomEvent, dispatchEvent, visibilityState, visibilityChange, orig_w = w;
 
 	// This is the only block where we use document without the w. qualifier
-	if (w.parent !== w
-			&& document.getElementById("boomr-if-as")
-			&& document.getElementById("boomr-if-as").nodeName.toLowerCase() === "script") {
+	if (w.parent !== w &&
+	    document.getElementById("boomr-if-as") &&
+	    document.getElementById("boomr-if-as").nodeName.toLowerCase() === "script") {
 		w = w.parent;
 		myurl = document.getElementById("boomr-if-as").src;
 	}
@@ -118,7 +130,7 @@ BOOMR_check_doc_domain();
 		return;
 	}
 
-	BOOMR.version = "0.9";
+	BOOMR.version = "%boomerang_version%";
 	BOOMR.window = w;
 	BOOMR.boomerang_frame = orig_w;
 
@@ -138,11 +150,11 @@ BOOMR_check_doc_domain();
 		}
 
 		try {
-			if (!createCustomEvent && d.createEvent && d.createEvent( "CustomEvent" )) {
+			if (!createCustomEvent && d.createEvent && d.createEvent("CustomEvent")) {
 				createCustomEvent = function(e_name, params) {
-					var evt = d.createEvent( "CustomEvent" );
+					var evt = d.createEvent("CustomEvent");
 					params = params || { cancelable: false, bubbles: false };
-					evt.initCustomEvent( e_name, params.bubbles, params.cancelable, params.detail );
+					evt.initCustomEvent(e_name, params.bubbles, params.cancelable, params.detail);
 
 					return evt;
 				};
@@ -182,11 +194,16 @@ BOOMR_check_doc_domain();
 		}
 
 		function dispatch() {
-			if (d.dispatchEvent) {
-				d.dispatchEvent(ev);
+			try {
+				if (d.dispatchEvent) {
+					d.dispatchEvent(ev);
+				}
+				else if (d.fireEvent) {
+					d.fireEvent("onpropertychange", ev);
+				}
 			}
-			else if (d.fireEvent) {
-				d.fireEvent("onpropertychange", ev);
+			catch (e) {
+				BOOMR.debug("Error when dispatching " + e_name);
 			}
 		}
 
@@ -222,16 +239,21 @@ BOOMR_check_doc_domain();
 		visibilityChange = "webkitvisibilitychange";
 	}
 
-
 	// impl is a private object not reachable from outside the BOOMR object
 	// users can set properties by passing in to the init() method
 	impl = {
 		// properties
 		beacon_url: "",
 		// beacon request method, either GET, POST or AUTO. AUTO will check the
-		// request size then use GET if the request URL is less than 2000 chars
+		// request size then use GET if the request URL is less than MAX_GET_LENGTH chars
 		// otherwise it will fall back to a POST request.
 		beacon_type: "AUTO",
+		//  beacon authorization key value.  Most systems will use the 'Authentication' keyword, but some
+		//  some services use keys like 'X-Auth-Token' or other custom keys
+		beacon_auth_key: "Authorization",
+		//  beacon authorization token.  This is only needed if your are using a POST and
+		//  the beacon requires an Authorization token to accept your data
+		beacon_auth_token: undefined,
 		// strip out everything except last two parts of hostname.
 		// This doesn't work well for domains that end with a country tld,
 		// but we allow the developer to override site_domain for that.
@@ -244,22 +266,38 @@ BOOMR_check_doc_domain();
 		// Whether or not to send beacons on page load
 		autorun: true,
 
-		strip_query_string: false,
+		// Whether or not we've sent a page load beacon
+		hasSentPageLoadBeacon: false,
 
-		onloadfired: false,
+		// cookie referrer
+		r: undefined,
 
-		handlers_attached: false,
+		// document.referrer
+		r2: undefined,
+
+		//! strip_query_string: false,
+
+		//! onloadfired: false,
+
+		//! handlers_attached: false,
 		events: {
 			"page_ready": [],
 			"page_unload": [],
 			"before_unload": [],
 			"dom_loaded": [],
 			"visibility_changed": [],
+			"prerender_to_visible": [],
 			"before_beacon": [],
 			"onbeacon": [],
+			"page_load_beacon": [],
 			"xhr_load": [],
 			"click": [],
-			"form_submit": []
+			"form_submit": [],
+			"onconfig": [],
+			"xhr_init": [],
+			"spa_init": [],
+			"spa_navigation": [],
+			"xhr_send": []
 		},
 
 		public_events: {
@@ -268,7 +306,19 @@ BOOMR_check_doc_domain();
 			"onboomerangloaded": "onBoomerangLoaded"
 		},
 
+		listenerCallbacks: {},
+
 		vars: {},
+
+		/**
+		 * Variable priority lists:
+		 * -1 = first
+		 *  1 = last
+		 */
+		varPriority: {
+			"-1": {},
+			"1": {}
+		},
 
 		errors: {},
 
@@ -293,8 +343,37 @@ BOOMR_check_doc_domain();
 			};
 		},
 
+		clearEvents: function() {
+			var eventName;
+
+			for (eventName in this.events) {
+				if (this.events.hasOwnProperty(eventName)) {
+					this.events[eventName] = [];
+				}
+			}
+		},
+
+		clearListeners: function() {
+			var type, i;
+
+			for (type in impl.listenerCallbacks) {
+				if (impl.listenerCallbacks.hasOwnProperty(type)) {
+					// remove all callbacks -- removeListener is guaranteed
+					// to remove the element we're calling with
+					while (impl.listenerCallbacks[type].length) {
+						BOOMR.utils.removeListener(
+						    impl.listenerCallbacks[type][0].el,
+						    type,
+						    impl.listenerCallbacks[type][0].fn);
+					}
+				}
+			}
+
+			impl.listenerCallbacks = {};
+		},
+
 		fireEvent: function(e_name, data) {
-			var i, handler, handlers;
+			var i, handler, handlers, handlersLen;
 
 			e_name = e_name.toLowerCase();
 
@@ -308,7 +387,16 @@ BOOMR_check_doc_domain();
 
 			handlers = this.events[e_name];
 
-			for (i=0; i<handlers.length; i++) {
+			// Before we fire any event listeners, let's call real_sendBeacon() to flush
+			// any beacon that is being held by the setImmediate.
+			if (e_name !== "before_beacon" && e_name !== "onbeacon") {
+				BOOMR.real_sendBeacon();
+			}
+
+			// only call handlers at the time of fireEvent (and not handlers that are
+			// added during this callback to avoid an infinite loop)
+			handlersLen = handlers.length;
+			for (i = 0; i < handlersLen; i++) {
 				try {
 					handler = handlers[i];
 					handler.fn.call(handler.scope, data, handler.cb_data);
@@ -318,22 +406,42 @@ BOOMR_check_doc_domain();
 				}
 			}
 
+			// remove any 'once' handlers now that we've fired all of them
+			for (i = 0; i < handlersLen; i++) {
+				if (handlers[i].once) {
+					handlers.splice(i, 1);
+					handlersLen--;
+					i--;
+				}
+			}
+
 			return;// true;
+		},
+
+		spaNavigation: function() {
+			// a SPA navigation occured, force onloadfired to true
+			impl.onloadfired = true;
 		}
 	};
-
 
 	// We create a boomr object and then copy all its properties to BOOMR so that
 	// we don't overwrite anything additional that was added to BOOMR before this
 	// was called... for example, a plugin.
 	boomr = {
-		t_lstart: null,
+		//! t_lstart: value of BOOMR_lstart set in host page
 		t_start: BOOMR_start,
-		t_end: null,
-		//! t_pload: Value of the BOOMR_onload set in the host page
-		t_onload: undefined,
+		//! t_end: value set in zzz-last-plugin.js
 
 		url: myurl,
+
+		// constants visible to the world
+		constants: {
+			// SPA beacon types
+			BEACON_TYPE_SPAS: ["spa", "spa_hard"],
+			// using 2000 here as a de facto maximum URL length based on:
+			// http://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers
+			MAX_GET_LENGTH: 2000
+		},
 
 		// Utility functions
 		utils: {
@@ -344,20 +452,20 @@ BOOMR_check_doc_domain();
 					return o;
 				}
 				if (separator === undefined) {
-					separator="\n\t";
+					separator = "\n\t";
 				}
 				if (!nest_level) {
-					nest_level=0;
+					nest_level = 0;
 				}
 
 				if (Object.prototype.toString.call(o) === "[object Array]") {
-					for (k=0; k<o.length; k++) {
+					for (k = 0; k < o.length; k++) {
 						if (nest_level > 0 && o[k] !== null && typeof o[k] === "object") {
 							value.push(
 								this.objectToString(
 									o[k],
 									separator + (separator === "\n\t" ? "\t" : ""),
-									nest_level-1
+									nest_level - 1
 								)
 							);
 						}
@@ -380,7 +488,7 @@ BOOMR_check_doc_domain();
 									this.objectToString(
 										o[k],
 										separator + (separator === "\n\t" ? "\t" : ""),
-										nest_level-1
+										nest_level - 1
 									)
 								);
 							}
@@ -408,13 +516,11 @@ BOOMR_check_doc_domain();
 
 				var i, cookies;
 				cookies = " " + d.cookie + ";";
-				if ( (i=cookies.indexOf(name)) >= 0 ) {
+				if ((i = cookies.indexOf(name)) >= 0) {
 					i += name.length;
 					cookies = cookies.substring(i, cookies.indexOf(";", i)).replace(/^"/, "").replace(/"$/, "");
 					return cookies;
 				}
-
-				return null;
 			},
 
 			setCookie: function(name, subcookies, max_age) {
@@ -431,12 +537,12 @@ BOOMR_check_doc_domain();
 				c = [nameval, "path=/", "domain=" + impl.site_domain];
 				if (max_age) {
 					exp = new Date();
-					exp.setTime(exp.getTime() + max_age*1000);
+					exp.setTime(exp.getTime() + max_age * 1000);
 					exp = exp.toGMTString();
 					c.push("expires=" + exp);
 				}
 
-				if ( nameval.length < 500 ) {
+				if (nameval.length < 500) {
 					d.cookie = c.join("; ");
 					// confirm cookie was set (could be blocked by user's settings, etc.)
 					savedval = this.getCookie(name);
@@ -455,8 +561,8 @@ BOOMR_check_doc_domain();
 			getSubCookies: function(cookie) {
 				var cookies_a,
 				    i, l, kv,
-				    gotcookies=false,
-				    cookies={};
+				    gotcookies = false,
+				    cookies = {};
 
 				if (!cookie) {
 					return null;
@@ -469,12 +575,12 @@ BOOMR_check_doc_domain();
 
 				cookies_a = cookie.split("&");
 
-				for (i=0, l=cookies_a.length; i<l; i++) {
+				for (i = 0, l = cookies_a.length; i < l; i++) {
 					kv = cookies_a[i].split("=");
 					if (kv[0]) {
 						kv.push("");	// just in case there's no value
 						cookies[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1]);
-						gotcookies=true;
+						gotcookies = true;
 					}
 				}
 
@@ -485,13 +591,36 @@ BOOMR_check_doc_domain();
 				return this.setCookie(name, {}, -86400);
 			},
 
-			cleanupURL: function(url) {
+			/**
+			 * Cleans up a URL by removing the query string (if configured), and
+			 * limits the URL to the specified size.
+			 *
+			 * @param {string} url URL to clean
+			 * @param {number} urlLimit Maximum size, in characters, of the URL
+			 *
+			 * @returns {string} Cleaned up URL
+			 */
+			cleanupURL: function(url, urlLimit) {
 				if (!url || Object.prototype.toString.call(url) === "[object Array]") {
 					return "";
 				}
+
 				if (impl.strip_query_string) {
-					return url.replace(/\?.*/, "?qs-redacted");
+					url = url.replace(/\?.*/, "?qs-redacted");
 				}
+
+				if (typeof urlLimit !== "undefined" && url && url.length > urlLimit) {
+					// We need to break this URL up.  Try at the query string first.
+					var qsStart = url.indexOf("?");
+					if (qsStart !== -1 && qsStart < urlLimit) {
+						url = url.substr(0, qsStart) + "?...";
+					}
+					else {
+						// No query string, just stop at the limit
+						url = url.substr(0, urlLimit - 3) + "...";
+					}
+				}
+
 				return url;
 			},
 
@@ -520,20 +649,20 @@ BOOMR_check_doc_domain();
 			},
 
 			pluginConfig: function(o, config, plugin_name, properties) {
-				var i, props=0;
+				var i, props = 0;
 
 				if (!config || !config[plugin_name]) {
 					return false;
 				}
 
-				for (i=0; i<properties.length; i++) {
+				for (i = 0; i < properties.length; i++) {
 					if (config[plugin_name][properties[i]] !== undefined) {
 						o[properties[i]] = config[plugin_name][properties[i]];
 						props++;
 					}
 				}
 
-				return (props>0);
+				return (props > 0);
 			},
 			/**
 			 * `filter` for arrays
@@ -564,40 +693,41 @@ BOOMR_check_doc_domain();
 				return result;
 			},
 			/**
-			 Add a MutationObserver for a given element and terminate after `timeout`ms.
-			 @param el		DOM element to watch for mutations
-			 @param config		MutationObserverInit object (https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver#MutationObserverInit)
-			 @param timeout		Number of milliseconds of no mutations after which the observer should be automatically disconnected
-						If set to a falsy value, the observer will wait indefinitely for Mutations.
-			 @param callback	Callback function to call either on timeout or if mutations are detected.  The signature of this method is:
-							function(mutations, callback_data)
-						Where:
-							mutations is the list of mutations detected by the observer or `undefined` if the observer timed out
-							callback_data is the passed in `callback_data` parameter without modifications
-
-						The callback function may return a falsy value to disconnect the observer after it returns, or a truthy value to
-						keep watching for mutations. If the return value is numeric and greater than 0, then this will be the new timeout
-						if it is boolean instead, then the timeout will not fire any more so the caller MUST call disconnect() at some point
-			 @param callback_data	Any data to be passed to the callback function as its second parameter
-			 @param callback_ctx	An object that represents the `this` object of the `callback` method.  Leave unset the callback function is not a method of an object
-
-			 @returns	- `null` if a MutationObserver could not be created OR
-					- An object containing the observer and the timer object:
-					  { observer: <MutationObserver>, timer: <Timeout Timer if any> }
-
-					The caller can use this to disconnect the observer at any point by calling `retval.observer.disconnect()`
-					Note that the caller should first check to see if `retval.observer` is set before calling `disconnect()` as it may
-					have been cleared automatically.
+			 * @desc
+			 * Add a MutationObserver for a given element and terminate after `timeout`ms.
+			 * @param el		DOM element to watch for mutations
+			 * @param config		MutationObserverInit object (https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver#MutationObserverInit)
+			 * @param timeout		Number of milliseconds of no mutations after which the observer should be automatically disconnected
+			 * 			If set to a falsy value, the observer will wait indefinitely for Mutations.
+			 * @param callback	Callback function to call either on timeout or if mutations are detected.  The signature of this method is:
+			 * 				function(mutations, callback_data)
+			 * 			Where:
+			 * 				mutations is the list of mutations detected by the observer or `undefined` if the observer timed out
+			 * 				callback_data is the passed in `callback_data` parameter without modifications
+			 *
+			 * 						The callback function may return a falsy value to disconnect the observer after it returns, or a truthy value to
+			 * 			keep watching for mutations. If the return value is numeric and greater than 0, then this will be the new timeout
+			 * 			if it is boolean instead, then the timeout will not fire any more so the caller MUST call disconnect() at some point
+			 * @param callback_data	Any data to be passed to the callback function as its second parameter
+			 * @param callback_ctx	An object that represents the `this` object of the `callback` method.  Leave unset the callback function is not a method of an object
+			 *
+			 * @returns {?object} - `null` if a MutationObserver could not be created OR
+			 * 		- An object containing the observer and the timer object:
+			 * 		  { observer: <MutationObserver>, timer: <Timeout Timer if any> }
+			 *
+			 * 		The caller can use this to disconnect the observer at any point by calling `retval.observer.disconnect()`
+			 * 		Note that the caller should first check to see if `retval.observer` is set before calling `disconnect()` as it may
+			 * 		have been cleared automatically.
 			 */
 			addObserver: function(el, config, timeout, callback, callback_data, callback_ctx) {
 				var o = {observer: null, timer: null};
 
-				if (!window.MutationObserver || !callback || !el) {
+				if (!BOOMR.window || !BOOMR.window.MutationObserver || !callback || !el) {
 					return null;
 				}
 
 				function done(mutations) {
-					var run_again=false;
+					var run_again = false;
 
 					if (o.timer) {
 						clearTimeout(o.timer);
@@ -622,7 +752,7 @@ BOOMR_check_doc_domain();
 					}
 				}
 
-				o.observer = new MutationObserver(done);
+				o.observer = new BOOMR.window.MutationObserver(done);
 
 				if (timeout) {
 					o.timer = setTimeout(done, o.timeout);
@@ -638,21 +768,39 @@ BOOMR_check_doc_domain();
 					el.addEventListener(type, fn, false);
 				}
 				else if (el.attachEvent) {
-					el.attachEvent( "on" + type, fn );
+					el.attachEvent("on" + type, fn);
 				}
+
+				// ensure the type arry exists
+				impl.listenerCallbacks[type] = impl.listenerCallbacks[type] || [];
+
+				// save a reference to the target object and function
+				impl.listenerCallbacks[type].push({ el: el, fn: fn});
 			},
 
 			removeListener: function(el, type, fn) {
+				var i;
+
 				if (el.removeEventListener) {
 					el.removeEventListener(type, fn, false);
 				}
 				else if (el.detachEvent) {
 					el.detachEvent("on" + type, fn);
 				}
+
+				if (impl.listenerCallbacks.hasOwnProperty(type)) {
+					for (var i = 0; i < impl.listenerCallbacks[type].length; i++) {
+						if (fn === impl.listenerCallbacks[type][i].fn &&
+						    el === impl.listenerCallbacks[type][i].el) {
+							impl.listenerCallbacks[type].splice(i, 1);
+							return;
+						}
+					}
+				}
 			},
 
 			pushVars: function(form, vars, prefix) {
-				var k, i, l=0, input;
+				var k, i, l = 0, input;
 
 				for (k in vars) {
 					if (vars.hasOwnProperty(k)) {
@@ -665,7 +813,7 @@ BOOMR_check_doc_domain();
 							input = document.createElement("input");
 							input.type = "hidden";	// we need `hidden` to preserve newlines. see commit message for more details
 							input.name = (prefix ? (prefix + "[" + k + "]") : k);
-							input.value = (vars[k]===undefined || vars[k]===null ? "" : vars[k]);
+							input.value = (vars[k] === undefined || vars[k] === null ? "" : vars[k]);
 
 							form.appendChild(input);
 
@@ -677,102 +825,125 @@ BOOMR_check_doc_domain();
 				return l;
 			},
 
-			sendData: function(form, method) {
-				var input = document.createElement("input"),
-				    urls = [ impl.beacon_url ];
+			isArray: function(ary) {
+				return Object.prototype.toString.call(ary) === "[object Array]";
+			},
 
-				form.method = method;
-				form.id = "beacon_form";
+			inArray: function(val, ary) {
+				var i;
 
-				// TODO: Determine if we want to send as JSON
-				//if (window.JSON) {
-				//	form.innerHTML = "";
-				//	form.enctype = "text/plain";
-				//	input.name = "data";
-				//	input.value = JSON.stringify(impl.vars);
-				//	form.appendChild(input);
-				//} else {
-				form.enctype = "application/x-www-form-urlencoded";
-				//}
-
-				if (impl.secondary_beacons && impl.secondary_beacons.length) {
-					urls.push.apply(urls, impl.secondary_beacons);
+				if (typeof val === "undefined" || typeof ary === "undefined" || !ary.length) {
+					return false;
 				}
 
-
-				function remove(id) {
-					var el = document.getElementById(id);
-					if (el) {
-						el.parentNode.removeChild(el);
+				for (i = 0; i < ary.length; i++) {
+					if (ary[i] === val) {
+						return true;
 					}
 				}
 
-				function submit() {
-					/*eslint-disable no-script-url*/
-					var iframe,
-					    name = "boomerang_post-" + encodeURIComponent(form.action) + "-" + Math.random();
+				return false;
+			},
 
-					// ref: http://terminalapp.net/submitting-a-form-with-target-set-to-a-script-generated-iframe-on-ie/
-					try {
-						iframe = document.createElement('<iframe name="' + name + '">');	// IE <= 8
+			/**
+			 * Get a query parameter value from a URL's query string
+			 *
+			 * @param {string} param Query parameter name
+			 * @param {string|Object} [url] URL containing the query string, or a link object. Defaults to BOOMR.window.location
+			 *
+			 * @returns {string|null} URI decoded value or null if param isn't a query parameter
+			 */
+			getQueryParamValue: function(param, url) {
+				var l, params, i, kv;
+				if (!param) {
+					return null;
+				}
+
+				if (typeof url === "string") {
+					l = BOOMR.window.document.createElement("a");
+					l.href = url;
+				}
+				else if (typeof url === "object" && typeof url.search === "string") {
+					l = url;
+				}
+				else {
+					l = BOOMR.window.location;
+				}
+
+				// Now that we match, pull out all query string parameters
+				params = l.search.slice(1).split(/&/);
+
+				for (i = 0; i < params.length; i++) {
+					if (params[i]) {
+						kv = params[i].split("=");
+						if (kv.length && kv[0] === param) {
+							return decodeURIComponent(kv[1].replace(/\+/g, " "));
+						}
 					}
-					catch (ignore) {
-						iframe = document.createElement("iframe");				// everything else
-					}
+				}
+				return null;
+			},
 
-					form.action = urls.shift();
-					iframe.name = iframe.id = name;
+			/**
+			 * Generates a pseudo-random UUID (Version 4):
+			 * https://en.wikipedia.org/wiki/Universally_unique_identifier
+			 *
+			 * @returns {string} UUID
+			 */
+			generateUUID: function() {
+				return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
+					var r = Math.random() * 16 | 0;
+					var v = c === "x" ? r : (r & 0x3 | 0x8);
+					return v.toString(16);
+				});
+			},
 
-					// IE Edge hangs for a minute on some sites when using form.submit().  This
-					// can be avoided by not setting the form.target, and adding the form to the
-					// iframe instead of the document.
-					iframe.style.display = form.style.display = "none";
-					iframe.src="javascript:false";
+			/**
+			 * Generates a random ID based on the specified number of characters.  Uses
+			 * characters a-z0-9.
+			 *
+			 * @param {number} chars Number of characters (max 40)
+			 * @returns {string} Random ID
+			 */
+			generateId: function(chars) {
+				return "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".substr(0, chars || 40).replace(/x/g, function(c) {
+					var c = (Math.random() || 0.01).toString(36);
 
-					remove(iframe.id);
-					remove(form.id);
-
-					document.body.appendChild(iframe);
-
-					// Add the form to the iframe
-					var iFrmDocument = (iframe.contentWindow || iframe.contentDocument);
-					if (iFrmDocument.document) {
-						iFrmDocument = iFrmDocument.document;
-					}
-					if (iFrmDocument.body) {
-						iFrmDocument.body.appendChild(form);
+					// some implementations may return "0" for small numbers
+					if (c === "0") {
+						return "0";
 					}
 					else {
-						//body may be null, so add to the document
-						iFrmDocument.appendChild(form);
+						return c.substr(2, 1);
 					}
-
-					try {
-						form.submit();
-					}
-					catch (ignore) {
-						// empty
-					}
-
-					if (urls.length) {
-						BOOMR.setImmediate(submit);
-					}
-
-					setTimeout(function() { remove(iframe.id); }, 10000);
-				}
-
-				submit();
+				});
 			}
 		},
 
 		init: function(config) {
 			var i, k,
-			    properties = ["beacon_url", "beacon_type", "site_domain", "user_ip", "strip_query_string", "secondary_beacons", "autorun"];
+			    properties = [
+				    "beacon_url",
+				    "beacon_type",
+				    "beacon_auth_key",
+				    "beacon_auth_token",
+				    "site_domain",
+				    "user_ip",
+				    "strip_query_string",
+				    "secondary_beacons",
+				    "autorun",
+				    "site_domain"
+			    ];
 
 			BOOMR_check_doc_domain();
 
 			if (!config) {
 				config = {};
+			}
+
+			if (!this.pageId) {
+				// generate a random page ID for this page's lifetime
+				this.pageId = BOOMR.utils.generateId(8);
 			}
 
 			if (config.primary && impl.handlers_attached) {
@@ -786,13 +957,19 @@ BOOMR_check_doc_domain();
 				this.log = function(/* m,l,s */) {};
 			}
 
+			// Set autorun if in config right now, as plugins that listen for page_ready
+			// event may fire when they .init() if onload has already fired, and whether
+			// or not we should fire page_ready depends on config.autorun.
+			if (typeof config.autorun !== "undefined") {
+				impl.autorun = config.autorun;
+			}
+
 			for (k in this.plugins) {
 				if (this.plugins.hasOwnProperty(k)) {
 					// config[plugin].enabled has been set to false
-					if ( config[k]
-						&& config[k].hasOwnProperty("enabled")
-						&& config[k].enabled === false
-					) {
+					if (config[k] &&
+					    config[k].hasOwnProperty("enabled") &&
+					    config[k].enabled === false) {
 						impl.disabled_plugins[k] = 1;
 
 						if (typeof this.plugins[k].disable === "function") {
@@ -806,10 +983,9 @@ BOOMR_check_doc_domain();
 					if (impl.disabled_plugins[k]) {
 
 						// and has not been explicitly re-enabled
-						if ( !config[k]
-							|| !config[k].hasOwnProperty("enabled")
-							|| config[k].enabled !== true
-						) {
+						if (!config[k] ||
+						    !config[k].hasOwnProperty("enabled") ||
+						    config[k].enabled !== true) {
 							continue;
 						}
 
@@ -833,7 +1009,7 @@ BOOMR_check_doc_domain();
 				}
 			}
 
-			for (i=0; i<properties.length; i++) {
+			for (i = 0; i < properties.length; i++) {
 				if (config[properties[i]] !== undefined) {
 					impl[properties[i]] = config[properties[i]];
 				}
@@ -860,15 +1036,41 @@ BOOMR_check_doc_domain();
 			}
 
 			BOOMR.utils.addListener(w, "DOMContentLoaded", function() { impl.fireEvent("dom_loaded"); });
+			BOOMR.fireEvent("onconfig", config);
+			BOOMR.subscribe("onconfig", function(beaconConfig) {
+				if (beaconConfig.beacon_url) {
+					impl.beacon_url = beaconConfig.beacon_url;
+				}
+			});
+
+			BOOMR.subscribe("spa_navigation", impl.spaNavigation, null, impl);
 
 			(function() {
 				var forms, iterator;
 				if (visibilityChange !== undefined) {
 					BOOMR.utils.addListener(d, visibilityChange, function() { impl.fireEvent("visibility_changed"); });
 
-					// record the last time each visibility state occurred
+					// save the current visibility state
+					impl.lastVisibilityState = BOOMR.visibilityState();
+
 					BOOMR.subscribe("visibility_changed", function() {
-						BOOMR.lastVisibilityEvent[BOOMR.visibilityState()] = BOOMR.now();
+						var visState = BOOMR.visibilityState();
+
+						// record the last time each visibility state occurred
+						BOOMR.lastVisibilityEvent[visState] = BOOMR.now();
+						BOOMR.debug("Visibility changed from " + impl.lastVisibilityState + " to " + visState);
+
+						// if we transitioned from prerender to hidden or visible, fire the prerender_to_visible event
+						if (impl.lastVisibilityState === "prerender" &&
+						    visState !== "prerender") {
+							// note that we transitioned from prerender on the beacon for debugging
+							BOOMR.addVar("vis.pre", "1");
+
+							// let all listeners know
+							impl.fireEvent("prerender_to_visible");
+						}
+
+						impl.lastVisibilityState = visState;
 					});
 				}
 
@@ -884,16 +1086,37 @@ BOOMR_check_doc_domain();
 					// We only clear w on browsers that don't support onpagehide because
 					// those that do are new enough to not have memory leak problems of
 					// some older browsers
-					BOOMR.utils.addListener(w, "unload", function() { BOOMR.window=w=null; });
+					BOOMR.utils.addListener(w, "unload", function() { BOOMR.window = w = null; });
 				}
 			}());
 
 			impl.handlers_attached = true;
 			return this;
 		},
+
 		/**
-		 * Sends the page_ready beacon only if 'autorun' is still true after config.js
-		 * arrives.
+		 * Attach a callback to the onload event if the onload has not
+		 * been fired yet
+		 *
+		 * @param {function} cb - Callback to run when onload fires or page is visible (pageshow)
+		 */
+		attach_page_ready: function(cb) {
+			if (d.readyState && d.readyState === "complete") {
+				this.setImmediate(cb, null, null, BOOMR);
+			}
+			else {
+				if (w.onpagehide || w.onpagehide === null) {
+					BOOMR.utils.addListener(w, "pageshow", cb);
+				}
+				else {
+					BOOMR.utils.addListener(w, "load", cb);
+				}
+			}
+		},
+
+		/**
+		 * Sends the page_ready beacon only if 'autorun' is still true after init
+		 * is called.
 		 */
 		page_ready_autorun: function(ev) {
 			if (impl.autorun) {
@@ -914,6 +1137,27 @@ BOOMR_check_doc_domain();
 			return this;
 		},
 
+		/**
+		 * Determines whether or not the page's `onload` event has fired, or
+		 * if `autorun` is false, whether `BOOMR.page_ready()` was called.
+		 *
+		 * @returns {boolean} True if onload or page_ready() were called
+		 */
+		onloadFired: function() {
+			return impl.onloadfired;
+		},
+
+		/**
+		 * Defer the function `fn` until the next instant the browser is free from user tasks
+		 * @param [Function] fn The callback function.  This function accepts the following arguments:
+		 *     - data: The passed in data object
+		 *     - cb_data: The passed in cb_data object
+		 *     - call stack: An Error object that holds the callstack for when setImmediate was called, used to determine what called the callback
+		 * @param [object] data Any data to pass to the callback function
+		 * @param [object] cb_data Any passthrough data for the callback function. This differs from `data` when setImmediate is called via an event handler and `data` is the Event object
+		 * @param [object] cb_scope The scope of the callback function if it is a method of an object
+		 * @returns nothing
+		 */
 		setImmediate: function(fn, data, cb_data, cb_scope) {
 			var cb, cstack;
 
@@ -926,67 +1170,123 @@ BOOMR_check_doc_domain();
 
 			cb = function() {
 				fn.call(cb_scope || null, data, cb_data || {}, cstack);
-				cb=null;
+				cb = null;
 			};
 
-			if (w.setImmediate) {
+			if (w.requestIdleCallback) {
+				w.requestIdleCallback(cb);
+			}
+			else if (w.setImmediate) {
 				w.setImmediate(cb);
-			}
-			else if (w.msSetImmediate) {
-				w.msSetImmediate(cb);
-			}
-			else if (w.webkitSetImmediate) {
-				w.webkitSetImmediate(cb);
-			}
-			else if (w.mozSetImmediate) {
-				w.mozSetImmediate(cb);
 			}
 			else {
 				setTimeout(cb, 10);
 			}
 		},
 
+		/**
+		 * Gets the current time in milliseconds since the Unix Epoch (Jan 1 1970).
+		 *
+		 * In browsers that support DOMHighResTimeStamp, this will be replaced
+		 * by a function that adds BOOMR.now() to navigationStart
+		 * (with milliseconds.microseconds resolution).
+		 *
+		 * @returns {Number} Milliseconds since Unix Epoch
+		 */
 		now: (function() {
+			return Date.now || function() { return new Date().getTime(); };
+		}()),
+
+		getPerformance: function() {
 			try {
-				if ("performance" in window && window.performance && window.performance.now) {
-					return function() {
-						return Math.round(window.performance.now() + window.performance.timing.navigationStart);
-					};
+				if (BOOMR.window) {
+					if ("performance" in BOOMR.window && BOOMR.window.performance) {
+						return BOOMR.window.performance;
+					}
+
+					// vendor-prefixed fallbacks
+					return BOOMR.window.msPerformance || BOOMR.window.webkitPerformance || BOOMR.window.mozPerformance;
 				}
 			}
 			catch (ignore) {
 				// empty
 			}
+		},
 
-			return Date.now || function() { return new Date().getTime(); };
-		}()),
-
-		visibilityState: ( visibilityState === undefined ? function() { return "visible"; } : function() { return d[visibilityState]; } ),
+		visibilityState: (visibilityState === undefined ? function() { return "visible"; } : function() { return d[visibilityState]; }),
 
 		lastVisibilityEvent: {},
 
-		subscribe: function(e_name, fn, cb_data, cb_scope) {
+		/**
+		 * Registers an event
+		 *
+		 * @param {string} e_name Event name
+		 *
+		 * @returns {BOOMR} Boomerang object
+		 */
+		registerEvent: function(e_name) {
+			if (impl.events.hasOwnProperty(e_name)) {
+				// already registered
+				return this;
+			}
+
+			// create a new queue of handlers
+			impl.events[e_name] = [];
+
+			return this;
+		},
+
+		/**
+		 * Disables boomerang from doing anything further:
+		 * 1. Clears event handlers (such as onload)
+		 * 2. Clears all event listeners
+		 */
+		disable: function() {
+			impl.clearEvents();
+			impl.clearListeners();
+		},
+
+		/**
+		 * Fires an event
+		 *
+		 * @param {string} e_name Event name
+		 * @param {object} data Event payload
+		 *
+		 * @returns {BOOMR} Boomerang object
+		 */
+		fireEvent: function(e_name, data) {
+			return impl.fireEvent(e_name, data);
+		},
+
+		subscribe: function(e_name, fn, cb_data, cb_scope, once) {
 			var i, handler, ev;
 
 			e_name = e_name.toLowerCase();
 
 			if (!impl.events.hasOwnProperty(e_name)) {
-				return this;
+				// allow subscriptions before they're registered
+				impl.events[e_name] = [];
 			}
 
 			ev = impl.events[e_name];
 
 			// don't allow a handler to be attached more than once to the same event
-			for (i=0; i<ev.length; i++) {
+			for (i = 0; i < ev.length; i++) {
 				handler = ev[i];
 				if (handler && handler.fn === fn && handler.cb_data === cb_data && handler.scope === cb_scope) {
 					return this;
 				}
 			}
-			ev.push({ "fn": fn, "cb_data": cb_data || {}, "scope": cb_scope || null });
+
+			ev.push({
+				fn: fn,
+				cb_data: cb_data || {},
+				scope: cb_scope || null,
+				once: once || false
+			});
 
 			// attaching to page_ready after onload fires, so call soon
-			if (e_name === "page_ready" && impl.onloadfired) {
+			if (e_name === "page_ready" && impl.onloadfired && impl.autorun) {
 				this.setImmediate(fn, null, cb_data, cb_scope);
 			}
 
@@ -1001,16 +1301,16 @@ BOOMR_check_doc_domain();
 					var unload_handler, evt_idx = ev.length;
 
 					unload_handler = function(evt) {
-								if (fn) {
-									fn.call(cb_scope, evt || w.event, cb_data);
-								}
+						if (fn) {
+							fn.call(cb_scope, evt || w.event, cb_data);
+						}
 
-								// If this was the last unload handler, we'll try to send the beacon immediately after it is done
-								// The beacon will only be sent if one of the handlers has queued it
-								if (e_name === "page_unload" && evt_idx === impl.events[e_name].length) {
-									BOOMR.real_sendBeacon();
-								}
-							};
+						// If this was the last unload handler, we'll try to send the beacon immediately after it is done
+						// The beacon will only be sent if one of the handlers has queued it
+						if (e_name === "page_unload" && evt_idx === impl.events[e_name].length) {
+							BOOMR.real_sendBeacon();
+						}
+					};
 
 					if (e_name === "page_unload") {
 						// pagehide is for iOS devices
@@ -1029,8 +1329,36 @@ BOOMR_check_doc_domain();
 			return this;
 		},
 
-		addError: function(err, src, extra) {
-			var str;
+		addError: function BOOMR_addError(err, src, extra) {
+			var str, E = BOOMR.plugins.Errors;
+
+			//
+			// Use the Errors plugin if it's enabled
+			//
+			if (E && E.is_supported()) {
+				if (typeof err === "string") {
+					E.send({
+						message: err,
+						extra: extra,
+						functionName: src,
+						noStack: true
+					}, E.VIA_APP, E.SOURCE_BOOMERANG);
+				}
+				else {
+					if (typeof src === "string") {
+						err.functionName = src;
+					}
+
+					if (typeof extra !== "undefined") {
+						err.extra = extra;
+					}
+
+					E.send(err, E.VIA_APP, E.SOURCE_BOOMERANG);
+				}
+
+				return;
+			}
+
 			if (typeof err !== "string") {
 				str = String(err);
 				if (str.match(/^\[object/)) {
@@ -1082,15 +1410,15 @@ BOOMR_check_doc_domain();
 				return this;
 			}
 
-			if (arguments.length === 1
-					&& Object.prototype.toString.apply(arg0) === "[object Array]") {
+			if (arguments.length === 1 &&
+			    Object.prototype.toString.apply(arg0) === "[object Array]") {
 				params = arg0;
 			}
 			else {
 				params = arguments;
 			}
 
-			for (i=0; i<params.length; i++) {
+			for (i = 0; i < params.length; i++) {
 				if (impl.vars.hasOwnProperty(params[i])) {
 					delete impl.vars[params[i]];
 				}
@@ -1101,6 +1429,43 @@ BOOMR_check_doc_domain();
 
 		hasVar: function(name) {
 			return impl.vars.hasOwnProperty(name);
+		},
+
+		/**
+		 * Sets a variable's priority in the beacon URL.
+		 * -1 = beginning of the URL
+		 * 0  = middle of the URL (default)
+		 * 1  = end of the URL
+		 *
+		 * @param {string} name Variable name
+		 * @param {number} pri Priority (-1 or 1)
+		 */
+		setVarPriority: function(name, pri) {
+			if (typeof pri !== "number" || Math.abs(pri) !== 1) {
+				return this;
+			}
+
+			impl.varPriority[pri][name] = 1;
+
+			return this;
+		},
+
+		/**
+		 * Sets the Referrers
+		 * @param {string} r Referrer from the cookie
+		 * @param {string} [r2] Referrer from document.referrer, if different
+		 */
+		setReferrer: function(r, r2) {
+			// cookie referrer
+			impl.r = r;
+
+			// document.referrer, if different
+			if (r2 && r !== r2) {
+				impl.r2 = r2;
+			}
+			else {
+				impl.r2 = undefined;
+			}
 		},
 
 		requestStart: function(name) {
@@ -1114,22 +1479,92 @@ BOOMR_check_doc_domain();
 			};
 		},
 
-		responseEnd: function(name, t_start, data) {
-			if (typeof name === "object" && name.url) {
+		/**
+		 * Determines is Boomerang can send a beacon.
+		 *
+		 * Queryies all plugins to see if they implement readyToSend(),
+		 * and if so, that they return true;
+		 *
+		 * If not, the beacon cannot be sent.
+		 *
+		 * @returns {boolean} True if Boomerang can send a beacon
+		 */
+		readyToSend: function() {
+			var plugin;
+
+			for (plugin in this.plugins) {
+				if (this.plugins.hasOwnProperty(plugin)) {
+					if (impl.disabled_plugins[plugin]) {
+						continue;
+					}
+
+					if (typeof this.plugins[plugin].readyToSend === "function" &&
+					    this.plugins[plugin].readyToSend() === false) {
+						BOOMR.debug("Plugin " + plugin + " is not ready to send");
+						return false;
+					}
+				}
+			}
+
+			return true;
+		},
+
+		responseEnd: function(name, t_start, data, t_end) {
+			// take the now timestamp for start and end, if unspecified, in case we delay this beacon
+			t_start = typeof t_start === "number" ? t_start : BOOMR.now();
+			t_end = typeof t_end === "number" ? t_end : BOOMR.now();
+
+			// wait until all plugins are ready to send
+			if (!BOOMR.readyToSend()) {
+				BOOMR.debug("Attempted to call responseEnd before all plugins were Ready to Send, trying again...");
+
+				// try again later
+				setTimeout(function() {
+					BOOMR.responseEnd(name, t_start, data, t_end);
+				}, 1000);
+
+				return;
+			}
+
+			// Wait until we've sent the Page Load beacon first
+			if (!BOOMR.hasSentPageLoadBeacon() &&
+			    !BOOMR.utils.inArray(name.initiator, BOOMR.constants.BEACON_TYPE_SPAS)) {
+				// wait for a beacon, then try again
+				BOOMR.subscribe("page_load_beacon", function() {
+					BOOMR.responseEnd(name, t_start, data, t_end);
+				}, null, BOOMR, true);
+
+				return;
+			}
+
+			if (typeof name === "object") {
+				if (!name.url) {
+					BOOMR.debug("BOOMR.responseEnd: First argument must have a url property if it's an object");
+					return;
+				}
+
 				impl.fireEvent("xhr_load", name);
 			}
 			else {
+				// flush out any queue'd beacons before we set the Page Group
+				// and timers
+				BOOMR.real_sendBeacon();
+
+				BOOMR.addVar("xhr.pg", name);
 				BOOMR.plugins.RT.startTimer("xhr_" + name, t_start);
 				impl.fireEvent("xhr_load", {
-					"name": "xhr_" + name,
-					"data": data
+					name: "xhr_" + name,
+					data: data,
+					timing: {
+						loadEventEnd: t_end
+					}
 				});
 			}
 		},
 
 		//
 		// uninstrumentXHR and instrumentXHR are stubs that will be replaced
-		// by auto_xhr.js if active.
+		// by auto-xhr.js if active.
 		//
 		/**
 		 * Undo XMLHttpRequest instrumentation and reset the original
@@ -1138,7 +1573,7 @@ BOOMR_check_doc_domain();
 		},
 		/**
 		 * Instrument all requests made via XMLHttpRequest to send beacons
-		 * This is implemented in plugins/auto_xhr.js
+		 * This is implemented in plugins/auto-xhr.js
 		 */
 		instrumentXHR: function() { },
 
@@ -1146,7 +1581,7 @@ BOOMR_check_doc_domain();
 			// This plugin wants the beacon to go somewhere else,
 			// so update the location
 			if (beacon_url_override) {
-				impl.beacon_url = beacon_url_override;
+				impl.beacon_url_override = beacon_url_override;
 			}
 
 			if (!impl.beaconQueued) {
@@ -1158,7 +1593,9 @@ BOOMR_check_doc_domain();
 		},
 
 		real_sendBeacon: function() {
-			var k, form, furl, img, length=0, errors=[], url, nparams=0;
+			var k, form, url, img, errors = [], params = [], paramsJoined, useImg = 1,
+			    varsSent = {}, varsToSend = {}, urlFirst = [], urlLast = [],
+			    xhr;
 
 			if (!impl.beaconQueued) {
 				return false;
@@ -1183,10 +1620,18 @@ BOOMR_check_doc_domain();
 				}
 			}
 
+			// Sanity test that the browser is still available (and not shutting down)
+			if (!window || !window.Image || !window.navigator || !BOOMR.window) {
+				BOOMR.debug("DOM not fully available, not sending a beacon");
+				return false;
+			}
+
 			// For SPA apps, don't strip hashtags as some SPA frameworks use #s for tracking routes
 			// instead of History pushState() APIs. Use d.URL instead of location.href because of a
 			// Safari bug.
-			var isSPA = impl.vars["http.initiator"] === "spa";
+			var isSPA = BOOMR.utils.inArray(impl.vars["http.initiator"], BOOMR.constants.BEACON_TYPE_SPAS);
+			var isPageLoad = typeof impl.vars["http.initiator"] === "undefined" || isSPA;
+
 			var pgu = isSPA ? d.URL : d.URL.replace(/#.*/, "");
 			impl.vars.pgu = BOOMR.utils.cleanupURL(pgu);
 
@@ -1198,6 +1643,21 @@ BOOMR_check_doc_domain();
 
 			if (impl.vars.pgu === impl.vars.u) {
 				delete impl.vars.pgu;
+			}
+
+			// Add cleaned-up referrer URLs to the beacon, if available
+			if (impl.r) {
+				impl.vars.r = BOOMR.utils.cleanupURL(impl.r);
+			}
+			else {
+				delete impl.vars.r;
+			}
+
+			if (impl.r2) {
+				impl.vars.r2 = BOOMR.utils.cleanupURL(impl.r2);
+			}
+			else {
+				delete impl.vars.r2;
 			}
 
 			impl.vars.v = BOOMR.version;
@@ -1214,6 +1674,10 @@ BOOMR_check_doc_domain();
 
 			impl.vars["ua.plt"] = navigator.platform;
 			impl.vars["ua.vnd"] = navigator.vendor;
+
+			if (this.pageId) {
+				impl.vars.pid = this.pageId;
+			}
 
 			if (w !== window) {
 				impl.vars["if"] = "";
@@ -1234,6 +1698,9 @@ BOOMR_check_doc_domain();
 			// If we reach here, all plugins have completed
 			impl.fireEvent("before_beacon", impl.vars);
 
+			// Use the override URL if given
+			impl.beacon_url = impl.beacon_url_override || impl.beacon_url;
+
 			// Don't send a beacon if no beacon_url has been set
 			// you would do this if you want to do some fancy beacon handling
 			// in the `before_beacon` event instead of a simple GET request
@@ -1243,62 +1710,219 @@ BOOMR_check_doc_domain();
 				return true;
 			}
 
-			if (!BOOMR.hasVar("restiming")) {
-				// Use an Image beacon if we're not sending ResourceTiming data
+			//
+			// Try to send an IMG beacon if possible (which is the most compatible),
+			// otherwise send an XHR beacon if the  URL length is longer than 2,000 bytes.
+			//
 
-				// if there are already url parameters in the beacon url,
-				// change the first parameter prefix for the boomerang url parameters to &
-
-				url = [];
-
-				for (k in impl.vars) {
-					if (impl.vars.hasOwnProperty(k)) {
-						nparams++;
-						url.push(encodeURIComponent(k)
-							+ "="
-							+ (
-								impl.vars[k]===undefined || impl.vars[k]===null
-								? ""
-								: encodeURIComponent(impl.vars[k])
-							)
-						);
-					}
+			// clone the vars object for two reasons: first, so all listeners of
+			// onbeacon get an exact clone (in case listeners are doing
+			// BOOMR.removeVar), and second, to help build our priority list of vars.
+			for (k in impl.vars) {
+				if (impl.vars.hasOwnProperty(k)) {
+					varsSent[k] = impl.vars[k];
+					varsToSend[k] = impl.vars[k];
 				}
+			}
 
-				furl = impl.beacon_url + ((impl.beacon_url.indexOf("?") > -1)?"&":"?") + url.join("&");
+			// get high- and low-priority variables first, which remove any of
+			// those vars from varsToSend
+			urlFirst = this.getVarsOfPriority(varsToSend, -1);
+			urlLast  = this.getVarsOfPriority(varsToSend, 1);
+
+			// merge the 3 lists
+			params = urlFirst.concat(this.getVarsOfPriority(varsToSend, 0), urlLast);
+			paramsJoined = params.join("&");
+
+			// if there are already url parameters in the beacon url,
+			// change the first parameter prefix for the boomerang url parameters to &
+			url = impl.beacon_url + ((impl.beacon_url.indexOf("?") > -1) ? "&" : "?") + paramsJoined;
+
+			if (impl.beacon_type === "POST" || url.length > BOOMR.constants.MAX_GET_LENGTH) {
+				// switch to a XHR beacon if the the user has specified a POST OR GET length is too long
+				useImg = false;
 			}
-			else {
-				form = document.createElement("form");
-				length = BOOMR.utils.pushVars(form, impl.vars);
-			}
+
+			BOOMR.removeVar("qt");
 
 			// If we reach here, we've transferred all vars to the beacon URL.
-			impl.fireEvent("onbeacon", impl.vars);
+			// The only thing that can stop it now is if we're rate limited
+			impl.fireEvent("onbeacon", varsSent);
 
-			if (length === 0 && nparams === 0) {
+			// keep track of page load beacons
+			if (!impl.hasSentPageLoadBeacon && isPageLoad) {
+				impl.hasSentPageLoadBeacon = true;
+
+				// let this beacon go out first
+				BOOMR.setImmediate(function() {
+					impl.fireEvent("page_load_beacon", varsSent);
+				});
+			}
+
+			if (params.length === 0) {
 				// do not make the request if there is no data
 				return this;
 			}
 
-			if (nparams) {
-				img = new Image();
-				img.src=furl;
+			if (!BOOMR.orig_XMLHttpRequest && (!BOOMR.window || !BOOMR.window.XMLHttpRequest)) {
+				// if we don't have XHR available, force an image beacon and hope
+				// for the best
+				useImg = true;
+			}
+
+			if (useImg) {
+				// just in case Image isn't a valid constructor
+				try {
+					img = new Image();
+				}
+				catch (e) {
+					BOOMR.debug("Image is not a constructor, not sending a beacon");
+					return false;
+				}
+
+				img.src = url;
 
 				if (impl.secondary_beacons) {
-					for (k = 0; k<impl.secondary_beacons.length; k++) {
-						furl = impl.secondary_beacons[k] + "?" + url.join("&");
+					for (k = 0; k < impl.secondary_beacons.length; k++) {
+						url = impl.secondary_beacons[k] + "?" + paramsJoined;
+
 						img = new Image();
-						img.src=furl;
+						img.src = url;
 					}
 				}
 			}
 			else {
-				// using 2000 here as a de facto maximum URL length based on:
-				// http://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers
-				BOOMR.utils.sendData(form, impl.beacon_type === "AUTO" ? (length > 2000 ? "POST" : "GET") : "POST");
+				// Send a form-encoded XHR POST beacon
+				xhr = new (BOOMR.window.orig_XMLHttpRequest || BOOMR.orig_XMLHttpRequest || BOOMR.window.XMLHttpRequest)();
+				try {
+					this.sendXhrPostBeacon(xhr, paramsJoined);
+				}
+				catch (e) {
+					// if we had an exception with the window XHR object, try our IFRAME XHR
+					xhr = new BOOMR.boomerang_frame.XMLHttpRequest();
+					this.sendXhrPostBeacon(xhr, paramsJoined);
+				}
 			}
 
 			return true;
+		},
+
+		/**
+		 * Determines whether or not a Page Load beacon has been sent.
+		 *
+		 * @returns {boolean} True if a Page Load beacon has been sent.
+		 */
+		hasSentPageLoadBeacon: function() {
+			return impl.hasSentPageLoadBeacon;
+		},
+
+		/**
+		 * Sends an XHR beacon
+		 *
+		 * @param {object} xhr XMLHttpRequest object
+		 * @param {object} [paramsJoined] XMLHttpRequest.send() argument
+		 */
+		sendXhrPostBeacon: function(xhr, paramsJoined) {
+			xhr.open("POST", impl.beacon_url);
+
+			xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+
+			if (typeof impl.beacon_auth_token !== "undefined") {
+				if (typeof impl.beacon_auth_key === "undefined") {
+					impl.beacon_auth_key = "Authorization";
+				}
+
+				xhr.setRequestHeader(impl.beacon_auth_key, impl.beacon_auth_token);
+			}
+
+			xhr.send(paramsJoined);
+		},
+
+		/**
+		 * Gets all variables of the specified priority
+		 *
+		 * @param {object} vars Variables (will be modified for pri -1 and 1)
+		 * @param {number} pri Priority (-1, 0, or 1)
+		 *
+		 * @return {string[]} Array of URI-encoded vars
+		 */
+		getVarsOfPriority: function(vars, pri) {
+			var name, url = [];
+
+			if (pri !== 0) {
+				// if we were given a priority, iterate over that list
+				for (name in impl.varPriority[pri]) {
+					if (impl.varPriority[pri].hasOwnProperty(name)) {
+						// if this var is set, add it to our URL array
+						if (vars.hasOwnProperty(name)) {
+							url.push(this.getUriEncodedVar(name, vars[name]));
+
+							// remove this name from vars so it isn't also added
+							// to the non-prioritized list when pri=0 is called
+							delete vars[name];
+						}
+					}
+				}
+			}
+			else {
+				// if we weren't given a priority, iterate over all of the vars
+				// that are left (from not being removed via earlier pri -1 or 1)
+				for (name in vars) {
+					if (vars.hasOwnProperty(name)) {
+						url.push(this.getUriEncodedVar(name, vars[name]));
+					}
+				}
+			}
+
+			return url;
+		},
+
+		/**
+		 * Gets a URI-encoded name/value pair.
+		 *
+		 * @param {string} name Name
+		 * @param {string} value Value
+		 *
+		 * @returns {string} URI-encoded string
+		 */
+		getUriEncodedVar: function(name, value) {
+			var result = encodeURIComponent(name) +
+				"=" +
+				(
+					value === undefined || value === null ?
+						"" :
+						encodeURIComponent(value)
+				);
+
+			return result;
+		},
+
+		/**
+		 * Gets the latest ResourceTiming entry for the specified URL
+		 * Default sort order is chronological startTime
+		 * @param {string} url Resource URL
+		 * @param {function} [sort] Sort the entries before returning the last one
+		 * @returns {PerformanceEntry|undefined} Entry, or undefined if ResourceTiming is not
+		 *          supported or if the entry doesn't exist
+		 */
+		getResourceTiming: function(url, sort) {
+			var entries;
+
+			try {
+				if (BOOMR.getPerformance() &&
+				    typeof BOOMR.getPerformance().getEntriesByName === "function") {
+					entries = BOOMR.getPerformance().getEntriesByName(url);
+					if (entries && entries.length) {
+						if (typeof sort === "function") {
+							entries.sort(sort);
+						}
+						return entries[entries.length - 1];
+					}
+				}
+			}
+			catch (ignore) {
+				// empty
+			}
 		}
 
 	};
@@ -1326,7 +1950,7 @@ BOOMR_check_doc_domain();
 
 		make_logger = function(l) {
 			return function(m, s) {
-				this.log(m, l, "boomerang" + (s?"."+s:""));
+				this.log(m, l, "boomerang" + (s ? "." + s : ""));
 				return this;
 			};
 		};
@@ -1337,6 +1961,22 @@ BOOMR_check_doc_domain();
 		boomr.error = make_logger("error");
 	}());
 
+	// If the browser supports performance.now(), swap that in for BOOMR.now
+	try {
+		var p = boomr.getPerformance();
+		if (p &&
+		    typeof p.now === "function" &&
+		    /\[native code\]/.test(String(p.now)) &&		// #545 handle bogus performance.now from broken shims
+		    p.timing &&
+		    p.timing.navigationStart) {
+			boomr.now = function() {
+				return Math.round(p.now() + p.timing.navigationStart);
+			};
+		}
+	}
+	catch (ignore) {
+		// empty
+	}
 
 	(function() {
 		var ident;
@@ -1347,11 +1987,11 @@ BOOMR_check_doc_domain();
 		}
 		if (!BOOMR.xhr_excludes) {
 			//! URLs to exclude from automatic XHR instrumentation
-			BOOMR.xhr_excludes={};
+			BOOMR.xhr_excludes = {};
 		}
 	}());
 
-	dispatchEvent("onBoomerangLoaded", { "BOOMR": BOOMR }, true );
+	dispatchEvent("onBoomerangLoaded", { "BOOMR": BOOMR }, true);
 
 }(window));
 

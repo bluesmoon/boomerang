@@ -9,7 +9,7 @@ see: http://code.google.com/p/chromium/issues/detail?id=43281
 */
 
 (function() {
-	var w, p={}, d, m, s, n, b, impl;
+	var w, p = {}, d, m, s, n, b, impl;
 	// First make sure BOOMR is actually defined.  It's possible that your plugin is loaded before boomerang, in which case
 	// you'll need this.
 	BOOMR = BOOMR || {};
@@ -18,8 +18,30 @@ see: http://code.google.com/p/chromium/issues/detail?id=43281
 		return;
 	}
 
-	function nodeCount(type, keys, filter) {
-		var tags, r, o;
+	/**
+	 * Count elements of a given type and return the count or an object with the `key` mapped to the `count` if a `key` is specified.
+	 * If one or more filters are included, apply them incrementally to the `element` array, assigning each intermediate count to the
+	 * corresponding `key` in the return object
+	 *
+	 * @param {string} type Element type to search DOM for
+	 *
+	 * @param {string[]} [keys] List of keys for return object
+	 * If not included, just the tag count is returned.
+	 * If included then an object is returned with each element in this array as a key, and the element count as the value.
+	 * For keys[1] onwards, the element count is the number of elements returned from each corresponding filter function.
+	 *
+	 * @param {function} [filter] List of filters to apply incrementally to element array
+	 * This is NOT an array
+	 * The input to each function in the argument list is the array returned by the previous function
+	 * The first function receives the array returned by the `getElementsByTagName` function
+	 * Each function MUST return a NodeList or an Array with a `length` property
+	 *
+	 * @returns {number|object}
+	 * If only one argument is passed in, returns a nodeCount matching that element type
+	 * If multiple arguments are passed in, returns an object with key to count mapping based on the rules above
+	 */
+	function nodeCount(type, keys /*, filter...*/) {
+		var tags, r, o, i, filter;
 		try {
 			tags = d.getElementsByTagName(type);
 			r = tags.length;
@@ -28,27 +50,33 @@ see: http://code.google.com/p/chromium/issues/detail?id=43281
 				o = {};
 				o[keys[0]] = r;
 
-				if (typeof filter === "function") {
+				// Iterate through all remaining arguments checking for filters
+				// Remember that keys.length will be at least 1 and arguments.length will be at least 2
+				// so the first key we use is keys[1] for arguments[2]
+				for (i = 2; r > 0 && i < arguments.length && i - 1 < keys.length; i++) {
+					filter = arguments[i];
+
+					if (typeof filter !== "function") {
+						continue;
+					}
+
 					try {
 						tags = BOOMR.utils.arrayFilter(tags, filter);
+						// Only add this if different from the previous
 						if (tags.length !== r) {
-							if (keys.length > 1) {
-								o[keys[1]] = tags.length;
-							}
-							else {
-								r += "/" + tags.length;
-							}
+							r = tags.length;
+							o[keys[i - 1]] = r;
 						}
 					}
-					catch(err) {
-						BOOMR.addError(err, "Memory.nodeList." + type + ".filter");
+					catch (err) {
+						BOOMR.addError(err, "Memory.nodeList." + type + ".filter[" + (i - 2) + "]");
 					}
 				}
 
 			}
 			return o || r;
 		}
-		catch(err) {
+		catch (err) {
 			BOOMR.addError(err, "Memory.nodeList." + type);
 			return 0;
 		}
@@ -59,7 +87,7 @@ see: http://code.google.com/p/chromium/issues/detail?id=43281
 			try {
 				callback();
 			}
-			catch(err) {
+			catch (err) {
 				BOOMR.addError(err, "Memory.done." + component);
 			}
 		}
@@ -76,7 +104,7 @@ see: http://code.google.com/p/chromium/issues/detail?id=43281
 			BOOMR.removeVar("dom.res");
 			errorWrap(true,
 				function() {
-					var res, doms={}, a;
+					var res, doms = {}, a;
 
 					if (!p || typeof p.getEntriesByType !== "function") {
 						return;
@@ -92,7 +120,7 @@ see: http://code.google.com/p/chromium/issues/detail?id=43281
 					a = BOOMR.window.document.createElement("a");
 
 					[].forEach.call(res, function(r) {
-						a.href=r.name;
+						a.href = r.name;
 						doms[a.hostname] = true;
 					});
 
@@ -104,12 +132,14 @@ see: http://code.google.com/p/chromium/issues/detail?id=43281
 			if (m) {
 				BOOMR.addVar({
 					"mem.total": m.totalJSHeapSize,
-					"mem.used" : m.usedJSHeapSize
+					"mem.limit": m.jsHeapSizeLimit,
+					"mem.used": m.usedJSHeapSize
 				});
 			}
 
 			errorWrap(s,
 				function() {
+					var sx, sy;
 					BOOMR.addVar({
 						"scr.xy": s.width + "x" + s.height,
 						"scr.bpp": s.colorDepth + "/" + (s.pixelDepth || "")
@@ -119,6 +149,15 @@ see: http://code.google.com/p/chromium/issues/detail?id=43281
 					}
 					if (w.devicePixelRatio > 1) {
 						BOOMR.addVar("scr.dpx", w.devicePixelRatio);
+					}
+					if (w.scrollX || w.scrollY) {
+						// Apparently some frameworks set scrollX and scrollY to functions that return the actual values
+						sx = typeof w.scrollX === "function" ? w.scrollX() : w.scrollX;
+						sy = typeof w.scrollY === "function" ? w.scrollY() : w.scrollY;
+
+						if (typeof sx === "number" && typeof sy === "number") {
+							BOOMR.addVar("scr.sxy", sx + "x" + sy);
+						}
 					}
 				},
 				"screen"
@@ -145,27 +184,66 @@ see: http://code.google.com/p/chromium/issues/detail?id=43281
 
 			errorWrap(true,
 				function() {
+					var uniqUrls;
+
 					BOOMR.addVar({
 						"dom.ln": nodeCount("*"),
 						"dom.sz": d.documentElement.innerHTML.length
 					});
 
+					uniqUrls = {};
 					BOOMR.addVar(nodeCount(
 						"img",
-						["dom.img", "dom.img.ext"],
-						function(el) { return el.src && !el.src.match(/^(?:about:|javascript:|data:|#)/); })
-					);
+						["dom.img", "dom.img.ext", "dom.img.uniq"],
+						function(el) {
+							return el.src && !el.src.toLowerCase().match(/^(?:about:|javascript:|data:|#)/);
+						},
+						function(el) {
+							return !(uniqUrls[el.src] = uniqUrls.hasOwnProperty(el.src));
+						}
+					));
 
+					uniqUrls = {};
 					BOOMR.addVar(nodeCount(
 						"script",
-						["dom.script", "dom.script.ext"],
-						function(el) { return el.src && !el.src.match(/^(?:about:|javascript:|#)/); })
-					);
+						["dom.script", "dom.script.ext", "dom.script.uniq"],
+						function(el) {
+							return el.src && !el.src.toLowerCase().match(/^(?:about:|javascript:|#)/);
+						},
+						function(el) {
+							return !(uniqUrls[el.src] = uniqUrls.hasOwnProperty(el.src));
+						}
+					));
+
+					uniqUrls = {};
+					BOOMR.addVar(nodeCount(
+						"iframe",
+						["dom.iframe", "dom.iframe.ext", "dom.iframe.uniq"],
+						function(el) {
+							return el.src && !el.src.toLowerCase().match(/^(?:about:|javascript:|#)/);
+						},
+						function(el) {
+							return !(uniqUrls[el.src] = uniqUrls.hasOwnProperty(el.src));
+						}
+					));
+
+					uniqUrls = {};
+					BOOMR.addVar(nodeCount(
+						"link",
+						["dom.link", "dom.link.css", "dom.link.css.uniq"],
+						function(link) {
+							return link.rel && link.rel.toLowerCase() === "stylesheet" &&
+								link.href && !link.href.toLowerCase().match(/^(?:about:|javascript:|#)/);
+						},
+						function(link) {
+							return !(uniqUrls[link.href] = uniqUrls.hasOwnProperty(link.href));
+						}
+					));
 				},
 				"dom"
 			);
 
-			// no need of sendBeacon because we're called when the beacon is being sent
+			// no need to call BOOMR.sendBeacon because we're called when the beacon is being sent
 		}
 	};
 
@@ -176,20 +254,32 @@ see: http://code.google.com/p/chromium/issues/detail?id=43281
 			try {
 				w = BOOMR.window;
 				d = w.document;
-				p = w.performance;
+				p = BOOMR.getPerformance();
 				c = w.console;
 				s = w.screen;
 				n = w.navigator;
 				if (n && n.battery) {
 					b = n.battery;
 				}
-				else if (n && n.getBattery) {
-					n.getBattery().then(function(battery) {
-						b = battery;
-					});
+				// There are cases where getBattery exists but is not a function
+				// No need to check for existence because typeof will return undefined anyway
+				else if (n && typeof n.getBattery === "function") {
+					var batPromise = n.getBattery();
+
+					// some UAs implement getBattery without a promise
+					if (batPromise && typeof batPromise.then === "function") {
+						batPromise.then(function(battery) {
+							b = battery;
+						});
+					}
+					// If batPromise is an object and it has a `level` property, then it's probably the battery object
+					else if (typeof batPromise === "object" && batPromise.hasOwnProperty("level")) {
+						b = batPromise;
+					}
+					// else do nothing
 				}
 			}
-			catch(err) {
+			catch (err) {
 				BOOMR.addError(err, "Memory.init");
 			}
 
