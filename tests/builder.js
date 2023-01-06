@@ -6,10 +6,21 @@ var grunt = require("grunt");
 var fs = require("fs");
 var path = require("path");
 var async = require("async");
+var JSON5 = require("json5");
+
+// Allow JSON5 for require statements
+require("json5/lib/register");
 
 //
 // Helper Functions
 //
+/**
+ * Gets all files underneath the specified directory
+ *
+ * @param {string} dir Directory
+ * @param {string} nameMatch Names to match
+ * @param {function} callback Callback with list of files
+ */
 function getFiles(dir, nameMatch, callback) {
 	async.waterfall([
 		function(cb) {
@@ -21,10 +32,13 @@ function getFiles(dir, nameMatch, callback) {
 			var files = matches.map(function(match) {
 				return path.join(dir, match);
 			}).filter(function(match) {
-				return fs.statSync(match).isFile() &&
-					!match.endsWith(".swp") &&
-					!match.endsWith("~") &&
-					(nameMatch === "" || match.indexOf(nameMatch) !== -1);
+				// Don't run statSync on .#-files as they confuse node
+				if (!match.match("\.#")) {
+					return fs.statSync(match).isFile() &&
+						!match.endsWith(".swp") &&
+						!match.endsWith("~") &&
+						(nameMatch === "" || match.indexOf(nameMatch) !== -1);
+				}
 			});
 
 			cb(null, files);
@@ -32,6 +46,12 @@ function getFiles(dir, nameMatch, callback) {
 	], callback);
 }
 
+/**
+ * Gets all subdirectories underneath the specified directory
+ *
+ * @param {string} dir Directory
+ * @param {function} callback Callback with list of directories
+ */
 function getDirs(dir, callback) {
 	async.waterfall([
 		function(cb) {
@@ -51,22 +71,91 @@ function getDirs(dir, callback) {
 	], callback);
 }
 
+/**
+ * Determines whether or not a test should be excluded for this build flavor
+ *
+ * @param {object} testsData Test data definitions
+ * @param {string[]} includedPlugins Plugins included in this build
+ * @param {string} templateDir Template directory
+ * @param {string} testName Test file name
+ *
+ * @returns {boolean} True if the test should be excluded
+ */
+function shouldExcludeTest(testsData, includedPlugins, templateDir, testName) {
+	if (!testsData || !includedPlugins || includedPlugins.length === 0) {
+		// no exclusions, so don't exclude
+		return false;
+	}
+
+	// plugins required for all tests in this directory
+	var requiredPlugins = (testsData.all && testsData.all.requires) || [];
+
+	// plugins required for this test
+	if (testsData[testName] && testsData[testName].requires) {
+		requiredPlugins = requiredPlugins.concat(testsData[testName].requires);
+	}
+
+	// make sure all required plugins are included in the build
+	for (var i = 0; i < requiredPlugins.length; i++) {
+		if (includedPlugins.indexOf(requiredPlugins[i]) === -1) {
+			// missing this required plugin
+			grunt.log.debug(templateDir + "/" + testName + " is missing " + requiredPlugins[i]);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
 //
 // Exports
 //
-module.exports = function() {
+module.exports = function(gruntTask, testTemplatesDir, testSnippetsDir, testPagesDir, e2eDir, e2eJsonPath) {
 	//
-	// Paths
+	// Inputs
 	//
 	var testsDir = __dirname;
-	var testTemplatesDir = path.join(testsDir, "page-templates");
-	var testSnippetsDir = path.join(testsDir, "page-template-snippets");
-	var testPagesDir = path.join(testsDir, "pages");
-	var e2eDir = path.join(testsDir, "e2e");
-	var e2eJsonPath = path.join(e2eDir, "e2e.json");
+	testTemplatesDir = testTemplatesDir || path.join(testsDir, "page-templates");
+	testSnippetsDir = testSnippetsDir || path.join(testsDir, "page-template-snippets");
+	testPagesDir = testPagesDir || path.join(testsDir, "pages");
+	e2eDir = e2eDir || path.join(testsDir, "e2e");
+	e2eJsonPath = e2eJsonPath || path.join(e2eDir, "e2e.json");
+
+	//
+	// Determine if there are any tests to exclude (based on the build flavor)
+	//
+
+	// get all plugin definitions
+	var pluginsJson = grunt.file.readJSON("plugins.json");
+
+	// default build
+	var includedPlugins = pluginsJson.plugins;
+
+	// if it's a build flavor, use that plugins list instead
+	var buildFlavor = grunt.option("build-flavor");
+	if (buildFlavor) {
+		includedPlugins = pluginsJson.flavors[buildFlavor].plugins;
+	}
+
+	// simplify plugin to just file name without extension
+	includedPlugins = includedPlugins.map(function(plugin) {
+		return plugin.replace("plugins/", "").replace(".js", "");
+	});
+
+	//
+	// Domains for test purposes
+	//
+	var DEFAULT_TEST_MAIN_DOMAIN = "boomerang-test.local";
+	var DEFAULT_TEST_SECONDARY_DOMAIN = "boomerang-test2.local";
+
+	var boomerangE2ETestDomain = grunt.option("main-domain") || DEFAULT_TEST_MAIN_DOMAIN;
+	var boomerangE2ESecondDomain = grunt.option("secondary-domain") || DEFAULT_TEST_SECONDARY_DOMAIN;
+	var boomerangE2ETestPort = grunt.option("test-port") || 4002;
+	var boomerangE2ETestScheme = grunt.option("test-scheme") || "http";
 
 	//make grunt know this task is async.
-	var done = this.async();
+	var done = gruntTask.async();
 
 	async.waterfall([
 		//
@@ -83,7 +172,12 @@ module.exports = function() {
 			});
 		},
 		function(opts, cb) {
-			opts.vars = {};
+			opts.vars = {
+				mainServer: boomerangE2ETestDomain,
+				secondaryServer: boomerangE2ESecondDomain,
+				testPort: boomerangE2ETestPort,
+				testScheme: boomerangE2ETestScheme
+			};
 
 			// Set all template vars to their file name
 			opts.snippetFiles.forEach(function(file) {
@@ -120,6 +214,20 @@ module.exports = function() {
 				var templateDir = dir.replace(testTemplatesDir + path.sep, "");
 				var supportDir = path.join(testTemplatesDir, templateDir, "support");
 
+				//
+				// Test definitions
+				//
+				var testsDataFile = path.join(testTemplatesDir, templateDir, "tests.json5");
+				var testsData = {};
+				try {
+					if (grunt.file.exists(testsDataFile)) {
+						testsData = require(testsDataFile);
+					}
+				}
+				catch (e) {
+					// NOP, test file doesn't need to exist;
+				}
+
 				rootIndexHtml += "<p><a href='" + templateDir + "/index.html'>" + templateDir + "</a></p>";
 
 				// copy support files over
@@ -141,7 +249,23 @@ module.exports = function() {
 							var supportFileName = supportFileBasePath.replace(templateDir + path.sep, "").replace("support" + path.sep, "");
 
 							grunt.log.ok(supportFileBasePath);
-							grunt.file.copy(file, path.join(supportDirDest, supportFileName));
+
+							if (supportFileName.endsWith("html")) {
+								// read contents
+								var contents = fs.readFileSync(file, "utf-8");
+
+								opts.vars.fileName = supportFileName;
+
+								var rendered = grunt.template.process(contents, {
+									data: opts.vars
+								});
+
+								// write
+								grunt.file.write(path.join(supportDirDest, supportFileName), rendered);
+							}
+							else {
+								grunt.file.copy(file, path.join(supportDirDest, supportFileName));
+							}
 						});
 					});
 				}
@@ -162,8 +286,14 @@ module.exports = function() {
 						var templateFileName = templateFile.replace(templateDir + path.sep, "");
 						var templateFileDest = path.join(testPagesDir, templateFile);
 
-						grunt.log.ok(templateFile);
+						var testFile = templateFileName.replace(".html", "");
+						if (shouldExcludeTest(testsData, includedPlugins, templateDir, testFile)) {
+							grunt.log.ok("Skipping " + templateFile);
 
+							return;
+						}
+
+						grunt.log.ok(templateFile);
 
 						// javascript file
 						var jsFile = file.replace(".html", "") + ".js";
@@ -190,7 +320,7 @@ module.exports = function() {
 						// save to our test definitions
 						testDefinitions.push({
 							path: templateDir,
-							file: templateFileName.replace(".html", "")
+							file: testFile
 						});
 
 						//
@@ -220,9 +350,21 @@ module.exports = function() {
 				// write root index
 				grunt.log.ok("index.html");
 				grunt.file.write(rootIndexFile, rootIndexHtml);
+				var testConfiguration = {
+					server: {
+						main: boomerangE2ETestDomain,
+						second: boomerangE2ESecondDomain,
+						scheme: boomerangE2ETestScheme
+					},
+					ports: {
+						main: boomerangE2ETestPort,
+						second: boomerangE2ETestPort + 1
+					},
+					tests: testDefinitions
+				};
 
 				// test definitions
-				grunt.file.write(e2eJsonPath, JSON.stringify(testDefinitions, null, 2));
+				grunt.file.write(e2eJsonPath, JSON.stringify(testConfiguration, null, 2));
 
 				cb(err, opts);
 			});

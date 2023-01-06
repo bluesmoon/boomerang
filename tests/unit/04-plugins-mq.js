@@ -4,6 +4,12 @@
 describe("BOOMR.plugins.mq", function() {
 	var assert = chai.assert;
 
+	beforeEach(function() {
+		if (!BOOMR.window || !BOOMR.window.BOOMR_mq) {
+			return this.skip();
+		}
+	});
+
 	describe("exports", function() {
 		it("Should have a BOOMR_mq object", function() {
 			assert.isObject(BOOMR.window.BOOMR_mq);
@@ -17,7 +23,7 @@ describe("BOOMR.plugins.mq", function() {
 	describe("push()", function() {
 		it("Should handle degenerate cases", function() {
 			assert.doesNotThrow(function() {
-				BOOMR_mq.push(
+				BOOMR.window.BOOMR_mq.push(
 					null,
 					undefined,
 					false,
@@ -44,14 +50,14 @@ describe("BOOMR.plugins.mq", function() {
 				BOOMR.method = function() {
 					done();
 				};
-				BOOMR_mq.push(["method"]);
+				BOOMR.window.BOOMR_mq.push(["method"]);
 			});
 
 			it("Should call namespaced methods on BOOMR", function(done) {
 				BOOMR.method = function() {
 					done();
 				};
-				BOOMR_mq.push(["BOOMR.method"]);
+				BOOMR.window.BOOMR_mq.push(["BOOMR.method"]);
 			});
 
 			it("Should pass all arguments", function(done) {
@@ -62,7 +68,7 @@ describe("BOOMR.plugins.mq", function() {
 					assert.equal(arguments[2], 2);
 					done();
 				};
-				BOOMR_mq.push(["method", 0, 1, 2]);
+				BOOMR.window.BOOMR_mq.push(["method", 0, 1, 2]);
 			});
 
 			it("Should support `push` with multiple arguments", function(done) {
@@ -79,7 +85,7 @@ describe("BOOMR.plugins.mq", function() {
 					assert.equal(results[1], "method2");
 					done();
 				};
-				BOOMR_mq.push(
+				BOOMR.window.BOOMR_mq.push(
 						["method1"],
 						["method2"],
 						["method3"]
@@ -92,7 +98,7 @@ describe("BOOMR.plugins.mq", function() {
 						done();
 					}
 				};
-				BOOMR_mq.push(["obj.method"]);
+				BOOMR.window.BOOMR_mq.push(["obj.method"]);
 			});
 
 			it("Should step into functions on BOOMR", function(done) {
@@ -100,7 +106,7 @@ describe("BOOMR.plugins.mq", function() {
 				BOOMR.func.method = function() {
 					done();
 				};
-				BOOMR_mq.push(["func.method"]);
+				BOOMR.window.BOOMR_mq.push(["func.method"]);
 			});
 
 			it("Should use appropriate context", function(done) {
@@ -112,7 +118,7 @@ describe("BOOMR.plugins.mq", function() {
 						done();
 					}
 				};
-				BOOMR_mq.push(["obj.method1"]);
+				BOOMR.window.BOOMR_mq.push(["obj.method1"]);
 			});
 		});
 
@@ -121,7 +127,7 @@ describe("BOOMR.plugins.mq", function() {
 				BOOMR.method = function() {
 					done();
 				};
-				BOOMR_mq.push({
+				BOOMR.window.BOOMR_mq.push({
 					arguments: ["method"]
 				});
 			});
@@ -129,7 +135,7 @@ describe("BOOMR.plugins.mq", function() {
 				BOOMR.method = function() {
 					return 123;
 				};
-				BOOMR_mq.push({
+				BOOMR.window.BOOMR_mq.push({
 					arguments: ["method"],
 					callback: function() {
 						assert.lengthOf(arguments, 1);
@@ -148,7 +154,7 @@ describe("BOOMR.plugins.mq", function() {
 				};
 
 				BOOMR.method = function() {};
-				BOOMR_mq.push({
+				BOOMR.window.BOOMR_mq.push({
 					arguments: ["method"],
 					callback: Item.prototype.callback,
 					thisArg: new Item(123)

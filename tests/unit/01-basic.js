@@ -16,11 +16,19 @@ describe("BOOMR exports", function() {
 		assert.isString(BOOMR.version);
 	});
 
+	it("Should have an existing BOOMR.session Object", function() {
+		assert.isObject(BOOMR.session);
+	});
+
 	it("Should have an existing BOOMR.init() Function", function() {
 		assert.isFunction(BOOMR.init);
 	});
 
 	it("Should have an existing BOOMR.plugins Object", function(){
 		assert.isObject(BOOMR.plugins);
+	});
+
+	it("Should have an existing BOOMR.url value", function(){
+		assert.isString(BOOMR.url);
 	});
 });

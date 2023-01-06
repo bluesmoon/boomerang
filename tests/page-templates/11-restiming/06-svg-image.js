@@ -12,14 +12,14 @@ describe("e2e/11-restiming/06-svg-image", function() {
 			}
 		}
 
-		return null;
+		return undefined;
 	}
 
-	it("Should pass basic beacon validation", function(done){
+	it("Should pass basic beacon validation", function(done) {
 		t.validateBeaconWasSent(done);
 	});
 
-	it("Should found the SVG:image element", function(){
+	it("Should found the SVG:image element", function() {
 		if (t.isResourceTimingSupported()) {
 			var b = tf.beacons[0];
 
@@ -27,19 +27,37 @@ describe("e2e/11-restiming/06-svg-image", function() {
 			var img = findSvgImage(resources);
 			assert.isDefined(img, "Image is not null");
 		}
+		else {
+			this.skip();
+		}
 	});
 
-	it("Should have set the SVG:image initiatorType to IMAGE", function(){
+	it("Should have set the SVG:image initiatorType to IMAGE (or IMG, OTHER)", function() {
 		if (t.isResourceTimingSupported()) {
 			var b = tf.beacons[0];
 
 			var resources = ResourceTimingDecompression.decompressResources(JSON.parse(b.restiming));
 			var img = findSvgImage(resources);
-			assert.equal(img.initiatorType, "image");
+
+
+			if (t.isFirefox()) {
+				// Firefox initiator type may change depending on cache or response content-type?
+				// Looks to be `other` (soft reload), `img` (first hit) or `image` (hard reload)
+				assert.isTrue(BOOMR.utils.inArray(img.initiatorType, ["image", "img", "other"]));
+			}
+			else {
+				// `img` for IE & Edge
+				// `image` or `img` for Chrome
+				// `image` for Safari
+				assert.isTrue(BOOMR.utils.inArray(img.initiatorType, ["image", "img"]));
+			}
+		}
+		else {
+			this.skip();
 		}
 	});
 
-	it("Should have captured the SVG:image element height", function(){
+	it("Should have captured the SVG:image element height", function() {
 		if (t.isResourceTimingSupported()) {
 			var b = tf.beacons[0];
 
@@ -47,9 +65,12 @@ describe("e2e/11-restiming/06-svg-image", function() {
 			var img = findSvgImage(resources);
 			assert.equal(img.height, 200);
 		}
+		else {
+			this.skip();
+		}
 	});
 
-	it("Should have captured the SVG:image element width", function(){
+	it("Should have captured the SVG:image element width", function() {
 		if (t.isResourceTimingSupported()) {
 			var b = tf.beacons[0];
 
@@ -57,9 +78,12 @@ describe("e2e/11-restiming/06-svg-image", function() {
 			var img = findSvgImage(resources);
 			assert.equal(img.width, 400);
 		}
+		else {
+			this.skip();
+		}
 	});
 
-	it("Should have captured the SVG:image element top", function(){
+	it("Should have captured the SVG:image element top", function() {
 		if (t.isResourceTimingSupported()) {
 			var b = tf.beacons[0];
 
@@ -67,15 +91,21 @@ describe("e2e/11-restiming/06-svg-image", function() {
 			var img = findSvgImage(resources);
 			assert.operator(img.y, ">=", 20);
 		}
+		else {
+			this.skip();
+		}
 	});
 
-	it("Should have captured the SVG:image element left", function(){
+	it("Should have captured the SVG:image element left", function() {
 		if (t.isResourceTimingSupported()) {
 			var b = tf.beacons[0];
 
 			var resources = ResourceTimingDecompression.decompressResources(JSON.parse(b.restiming));
 			var img = findSvgImage(resources);
 			assert.operator(img.x, ">=", 10);
+		}
+		else {
+			this.skip();
 		}
 	});
 });

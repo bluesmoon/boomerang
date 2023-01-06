@@ -12,11 +12,11 @@ App.ApplicationRoute = Ember.Route.extend({
 		var router = this;
 		this._super.apply(arguments);
 		Ember.run.scheduleOnce("afterRender", function() {
-			if (typeof window.ember_nav_routes !== "undefined" &&
-			    Object.prototype.toString.call(window.ember_nav_routes) === "[object Array]") {
+			if (typeof window.ember_nav_routes !== "undefined" && BOOMR.utils.isArray(window.ember_nav_routes)) {
 				BOOMR.subscribe("onbeacon", function(beacon) {
-					// only continue for SPA beacons
-					if (!BOOMR.utils.inArray(beacon["http.initiator"], BOOMR.constants.BEACON_TYPE_SPAS)) {
+					// only continue for non-early SPA beacons
+					if (!BOOMR.utils.inArray(beacon["http.initiator"], BOOMR.constants.BEACON_TYPE_SPAS) ||
+					    typeof beacon.early !== "undefined") {
 						return;
 					}
 
@@ -29,6 +29,14 @@ App.ApplicationRoute = Ember.Route.extend({
 				});
 			}
 		});
+	},
+	actions: {
+		willTransition: function(transition) {
+			// Ember 1.x issues History API calls after the transition is complete (after XHRs and mutations).
+			// To work around this, we set auto:false and manually issue route changes
+			// for spa soft routes
+			BOOMR.plugins.SPA.route_change();
+		}
 	}
 });
 
@@ -51,9 +59,24 @@ App.WidgetsWidgetRoute = Ember.Route.extend({
 	},
 	model: function(params)  {
 		return Ember.$.getJSON("support/widgets.json?rnd=" + Math.random()).then(function(data) {
-			return data.filter(function(model) {
-				return String(model.id) === params.id;
+			var model;
+
+			// these overwrite what was in the HTML
+			window.custom_metric_1 = params.id;
+			window.custom_metric_2 = function() {
+				return 10 * params.id;
+			};
+
+			window.custom_timer_1 = params.id;
+			window.custom_timer_2 = function() {
+				return 10 * params.id;
+			};
+
+			model = data.filter(function(widget) {
+				return String(widget.id) === params.id;
 			})[0];
+			model.carttotal = 11.11 * params.id;
+			return model;
 		});
 	}
 });
@@ -69,13 +92,30 @@ App.HomeRoute = Ember.Route.extend({
 		}
 	},
 	model: function() {
-		return Ember.$.getJSON("support/widgets.json?rnd=" + Math.random()).then(function(data) {
+		return Ember.$.getJSON("/delay?delay=250&file=/pages/08-ember/support/widgets.json?rnd=" + Math.random()).then(function(data) {
 			var model = {};
 			model.widgets = data;
 			model.imgs = typeof window.imgs !== "undefined" ? window.imgs : [0];
 			console.log(model.imgs);
 			model.hide = model.imgs[0] === -1;
 			model.rnd = Math.random();
+
+			// these overwrite what was in the HTML
+			window.custom_metric_1 = 11;
+			window.custom_metric_2 = function() {
+				return 22;
+			};
+
+			window.custom_timer_1 = 11;
+			window.custom_timer_2 = function() {
+				return 22;
+			};
+
+			if (typeof window.performance !== "undefined" &&
+			    typeof window.performance.mark === "function") {
+				window.performance.mark("mark_usertiming");
+			}
+
 			return model;
 		});
 	}
@@ -96,21 +136,6 @@ App.Router.map(function() {
 	this.resource("empty", { path: "empty" });
 
 	this.route("home", { path: "" });
-
-	window.custom_metric_1 = 11;
-	window.custom_metric_2 = function() {
-		return 22;
-	};
-
-	window.custom_timer_1 = 11;
-	window.custom_timer_2 = function() {
-		return 22;
-	};
-
-	if (typeof window.performance !== "undefined" &&
-	    typeof window.performance.mark === "function") {
-		window.performance.mark("mark_usertiming");
-	}
 
 	var hadRouteChange = false;
 	var hadRouteChangeToggle = function() {
@@ -146,18 +171,19 @@ App.Router.map(function() {
 		}
 	}
 
-
-	if (!hookEmberBoomerang()) {
-		if (document.addEventListener) {
-			document.addEventListener("onBoomerangLoaded", hookEmberBoomerang);
-		}
-		else if (document.attachEvent) {
-			document.attachEvent("onpropertychange", function(e) {
-				e = e || window.event;
-				if (e && e.propertyName === "onBoomerangLoaded") {
-					hookEmberBoomerang();
-				}
-			});
+	if (!window.disableBoomerangHook) {
+		if (!hookEmberBoomerang()) {
+			if (document.addEventListener) {
+				document.addEventListener("onBoomerangLoaded", hookEmberBoomerang);
+			}
+			else if (document.attachEvent) {
+				document.attachEvent("onpropertychange", function(e) {
+					e = e || window.event;
+					if (e && e.propertyName === "onBoomerangLoaded") {
+						hookEmberBoomerang();
+					}
+				});
+			}
 		}
 	}
 });

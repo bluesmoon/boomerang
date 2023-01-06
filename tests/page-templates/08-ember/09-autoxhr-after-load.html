@@ -20,7 +20,7 @@
 var xhr;
 
 var beaconNum = 0;
-BOOMR.subscribe("onbeacon", function() {
+BOOMR.subscribe("beacon", function() {
 	if (!BOOMR.plugins.AutoXHR) {
 		return;
 	}
@@ -43,10 +43,14 @@ BOOMR.subscribe("onbeacon", function() {
 
 BOOMR_test.init({
 	testAfterOnBeacon: BOOMR.plugins.AutoXHR ? 3 : 1,
-	Ember: {
-		enabled: true
+	History: {
+		enabled: true,
+		monitorHistory: false
 	},
 	instrument_xhr: true,
+	AutoXHR: {
+		xhrRequireChanges: false
+	},
 	autorun: false
 });
 </script>

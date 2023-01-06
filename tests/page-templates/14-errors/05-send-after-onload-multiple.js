@@ -45,6 +45,9 @@ describe("e2e/14-errors/05-send-after-onload-multiple", function() {
 			if (err.fileName) {
 				assert.include(err.fileName, "05-send-after-onload-multiple.html");
 			}
+			else {
+				return this.skip();
+			}
 		}
 	});
 
@@ -56,6 +59,9 @@ describe("e2e/14-errors/05-send-after-onload-multiple", function() {
 			var err = errs[i];
 			if (typeof err.functionName !== "undefined") {
 				assert.include(err.functionName, "error-,function");
+			}
+			else {
+				return this.skip();
 			}
 		}
 	});
@@ -118,10 +124,13 @@ describe("e2e/14-errors/05-send-after-onload-multiple", function() {
 			if (typeof err.columnNumber !== "undefined") {
 				assert.isTrue(err.columnNumber >= 0);
 			}
+			else {
+				return this.skip();
+			}
 		}
 	});
 
-	it("Should have lineNumber ~ 30", function() {
+	it("Should have lineNumber ~ " + (HEADER_LINES + 4), function() {
 		var b = tf.lastBeacon();
 		var errs = BOOMR.plugins.Errors.decompressErrors(C.jsUrlDecompress(b.err));
 
@@ -129,7 +138,10 @@ describe("e2e/14-errors/05-send-after-onload-multiple", function() {
 			var err = errs[i];
 
 			if (err.lineNumber) {
-				assert.closeTo(err.lineNumber, 30, 5);
+				assert.closeTo(err.lineNumber, HEADER_LINES + 4, 5);
+			}
+			else {
+				return this.skip();
 			}
 		}
 	});

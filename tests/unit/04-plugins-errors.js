@@ -4,6 +4,12 @@
 describe("BOOMR.plugins.Errors", function() {
 	var assert = chai.assert;
 
+	beforeEach(function() {
+		if (!BOOMR.plugins.Errors) {
+			return this.skip();
+		}
+	});
+
 	describe("exports", function() {
 		it("Should have a Errors object", function() {
 			assert.isObject(BOOMR.plugins.Errors);
@@ -477,7 +483,7 @@ describe("BOOMR.plugins.Errors", function() {
 				assert.strictEqual(BOOMR.plugins.Errors.BoomerangError.fromError(undefined), null);
 			});
 
-			it("Should return an object if given an Error", function() {
+			it("Should return an object if given an Error raised in an Anonymous function", function() {
 				var err;
 				var ln = 0;
 
@@ -501,7 +507,8 @@ describe("BOOMR.plugins.Errors", function() {
 				assert.strictEqual(be.count, 1);
 
 				if (be.fileName) {
-					assert.include(be.fileName, "04-plugins-errors");
+					// fails in IE10-11 and non-Chromium Edge due to bug in error plugin `parseV8OrIE`
+					assert.include(be.fileName, "04-plugins-errors.js");
 				}
 
 				// not all browsers will emit functionName
@@ -520,8 +527,101 @@ describe("BOOMR.plugins.Errors", function() {
 				assert.strictEqual(be.type, "Error");
 
 				if (be.stack) {
-					assert.include(be.stack, "Test");
+					assert.include(be.stack, "04-plugins-errors.js");
+					assert.include(be.stack, "mocha.js");
 				}
+			});
+
+			it("Should return an object if given an Error raised in a named function", function namedFunction() {
+				var err;
+				var ln = 0;
+
+				try {
+					throw new Error("Test");
+				}
+				catch (err2) {
+					err = err2;
+
+					// 6 lines up
+					ln = err.lineNumber ? (err.lineNumber - 6) : 0;
+				}
+
+				var be = BOOMR.plugins.Errors.BoomerangError.fromError(err, BOOMR.plugins.Errors.VIA_APP, BOOMR.plugins.Errors.SOURCE_APP);
+
+				// character count may differ amongst browsers
+				if (be.columnNumber) {
+					assert.closeTo(be.columnNumber, 15, 15);
+				}
+
+				assert.strictEqual(be.count, 1);
+
+				if (be.fileName) {
+					assert.include(be.fileName, "04-plugins-errors.js");  // fails in IE10-11 and non-Chromium Edge, is "http://boomerang-test.local:4002/vendor/mocha/mocha.js"
+				}
+
+				// not all browsers will emit functionName
+				if (be.functionName) {
+					assert.include(be.functionName, "namedFunction");
+				}
+
+				if (ln !== 0 && be.lineNumber) {
+					assert.closeTo(be.lineNumber, ln, 10);
+				}
+
+				assert.strictEqual(be.message, "Test");
+				assert.strictEqual(be.source, BOOMR.plugins.Errors.SOURCE_APP);
+				assert.strictEqual(be.type, "Error");
+
+				if (be.stack) {
+					assert.include(be.stack, "04-plugins-errors.js");
+					assert.include(be.stack, "mocha.js");
+				}
+			});
+
+			it("Should strip Boomerang functions from an Error", function() {
+				var stack = "Error: Test\n" +
+							"    at okFunction1 (okFile1:1:1)\n" + // keep
+							"    at okFunction2 (okFile2:2:2)\n" + // keep
+							"    at createStackForSend (boomr:1)\n" +
+							"    at BOOMR.window.console.error (boomr:1)\n" +
+							"    at BOOMR.plugins.Errors.init (a.html:1)\n" +
+							"    at BOOMR.window.onerror (boomr:1)\n" +
+							"    at BOOMR_plugins_errors_console (boomr:1)\n" +
+							"    at okFunction3 (okFile3:3:3)\n" + // keep
+							"    at BOOMR_plugins_errors_console (boomr:1)\n" +
+							"    at okFunction4 (okFile4:4:4)\n" + // keep
+							"    at Object.send (/a/boomerang/b/:1:2)\n" +
+							"    at wrap/< (/a/boomerang/b/:1:2)\n" +
+							"    at Anonymous function (/a/boomerang/b/:1:2)\n" +
+							"    at Object.send (/a/noboomr/b/:1:2)\n" + // keep
+							"    at wrap/< (/a/noboomr/b/:1:2)"; // keep
+				var err = {
+					stack: stack
+				};
+
+				var parsed = BOOMR.plugins.Errors.BoomerangError.fromError(err);
+
+				// only 4 frames should be left
+				assert.equal(parsed.frames.length, 6);
+
+				// first 4 matches are all okFunctionN at okFileN:N:n
+				for (var i = 1; i <= 4; i++) {
+					assert.equal(parsed.frames[i - 1].functionName, "okFunction" + i);
+					assert.equal(parsed.frames[i - 1].fileName, "okFile" + i);
+					assert.equal(parsed.frames[i - 1].lineNumber, i);
+					assert.equal(parsed.frames[i - 1].columnNumber, i);
+				}
+
+				// then Object.send and wrap match
+				assert.equal(parsed.frames[4].functionName, "Object.send");
+				assert.equal(parsed.frames[4].fileName, "/a/noboomr/b/");
+				assert.equal(parsed.frames[4].lineNumber, 1);
+				assert.equal(parsed.frames[4].columnNumber, 2);
+
+				assert.equal(parsed.frames[5].functionName, "wrap/<");
+				assert.equal(parsed.frames[5].fileName, "/a/noboomr/b/");
+				assert.equal(parsed.frames[5].lineNumber, 1);
+				assert.equal(parsed.frames[5].columnNumber, 2);
 			});
 		});
 	});

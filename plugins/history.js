@@ -1,192 +1,442 @@
-/*global BOOMR*/
+/**
+ * The History plugin allows you to automatically monitor Single Page
+ * App (SPA) navigations that change their routes via the
+ * [`window.history`](https://developer.mozilla.org/en-US/docs/Web/API/Window/history)
+ * object.
+ *
+ * The History plugin can be used for any SPA (eg. Angular, Backbone, Ember, React, Vue, etc.)
+ * and replaces the deprecated Angular, Backbone and Ember plugins.
+ *
+ * **Note**: This plugin requires the {@link BOOMR.plugins.AutoXHR} and
+ * {@link BOOMR.plugins.SPA} plugins to be loaded first (in that order).
+ *
+ * For details on how Boomerang Single Page App instrumentation works, see the
+ * {@link BOOMR.plugins.SPA} documentation.
+ *
+ * For information on how to include this plugin, see the {@tutorial building} tutorial.
+ *
+ * ## Compatibility
+ *
+ * This plugin should work with any Single Page App, by instrumenting the
+ * [`window.history`](https://developer.mozilla.org/en-US/docs/Web/API/Window/history)
+ * object to monitor for route changes.
+ *
+ * The SPA app needs to change the history state or hash before doing the work required to
+ * change the route (eg. XHRs, DOM node changes). With frameworks where the history events
+ * happen after the route change has completed (e.g. Ember.js 1.x), we can configure the
+ * plugin with `monitorHistory: false` and call `BOOMR.plugins.SPA.route_change()` manually
+ * when the route change begins.
+ *
+ * ## Beacon Parameters
+ *
+ * This plugin does not add any additional beacon parameters beyond the
+ * {@link BOOMR.plugins.SPA} plugin.
+ *
+ * ## Usage
+ *
+ * Include the {@link BOOMR.plugins.AutoXHR}, {@link BOOMR.plugins.SPA}
+ * and {@link BOOMR.plugins.History} plugins.  See {@tutorial building} for details.
+ *
+ * @class BOOMR.plugins.History
+ */
 (function() {
 	var impl = {
-		auto: false,
+		monitorHistory: true,  // if monitorHistory is false then the History object will not be hooked
 		enabled: true,
 		hooked: false,
-		routeHooked: false,
-		hadMissedRouteChange: false,
-		routeChangeInProgress: false
+		routeChangeInProgress: false,  // will store the setTimeout id when set
+		disableHardNav: false,  // whether or not to disable SPA hard beacons
+		routeFilter: undefined,  // route change filter callback function
+		routeChangeWaitFilter: undefined,  // route change wait filter callback function
+		routeChangeWaitFilterHardNavs: false, // whether to apply wait filter on hard navs
+		monitorReplaceState: true,  // whether or not to hook history.replaceState
+		a: undefined,  // helper anchor object used to cleanup urls
+		browserOnloadBeforeSetup: false,  // browser onload happened before our setup
+
+		DEPRECATED_PLUGINS: ["Angular", "Backbone", "Ember"],
+
+		/**
+		 * Clears routeChangeInProgress flag
+		 */
+		resetRouteChangeInProgress: function(edata) {
+			// Three types of beacons can go out before the Page Load beacon: Early Beacon, Custom Metric and Custom Timer.
+			// For those beacon types, we want to keep the state unchanged.
+			if (edata &&
+				(
+					(typeof edata.early !== "undefined") ||
+					(edata["http.initiator"] && edata["http.initiator"].indexOf("api_custom_") === 0)
+				)) {
+
+				return;
+			}
+
+			debugLog("resetting routeChangeInProgress");
+
+			if (impl.routeChangeInProgress) {
+				clearTimeout(impl.routeChangeInProgress);
+			}
+
+			impl.routeChangeInProgress = false;
+		},
+
+		/**
+		 * Sets routeChangeInProgress flag and sets up timer to clear it later
+		 */
+		setRouteChangeInProgress: function() {
+			if (impl.routeChangeInProgress) {
+				clearTimeout(impl.routeChangeInProgress);
+			}
+			// reset our routeChangeInProgress flag as soon as the browser is free.
+			// Current browser behavior favors sending internal events over calling
+			// timeout callbacks. If for example the back button is clicked and a replaceState
+			// is called then the popstate event should be triggered to extend this timeout before
+			// the callback is called.
+			impl.routeChangeInProgress = setTimeout(impl.resetRouteChangeInProgress, 50);
+		},
+
+		/**
+		 * Called on route change
+		 */
+		routeChange: function(event) {
+			if (!impl.enabled) {
+				debugLog("Not enabled - we've missed a routeChange");
+				impl.resetRouteChangeInProgress();
+			}
+			else {
+				// don't track the SPA route change until the onload (page_ready)
+				// has fired
+				if (impl.disableHardNav && !BOOMR.onloadFired()) {
+					debugLog("disableHardNav and not page_ready, not triggering");
+					return;
+				}
+
+				if (!impl.routeChangeInProgress) {
+					debugLog("routeChange triggered, sending route_change() event");
+					if (event.toUrl) {
+						impl.a.href = event.toUrl;
+						event.toUrl = impl.a.href;
+					}
+					BOOMR.plugins.SPA.route_change(null, [event.type, event.fromUrl, event.toUrl]);
+				}
+				else {
+					debugLog("routeChangeInProgress, not triggering");
+				}
+			}
+		}
 	};
 
+	BOOMR = window.BOOMR || {};
+	BOOMR.plugins = BOOMR.plugins || {};
+
 	// Checking for Plugins required and if already integrated
-	if (BOOMR.plugins.History || typeof BOOMR.plugins.SPA === "undefined" || typeof BOOMR.plugins.AutoXHR === "undefined") {
+	if (BOOMR.plugins.History ||
+	    typeof BOOMR.plugins.SPA === "undefined" ||
+	    typeof BOOMR.plugins.AutoXHR === "undefined") {
 		return;
 	}
 
-	// History object not available on the window object
-	if (!BOOMR.window || !BOOMR.window.history) {
+	// check that window and document available
+	if (!BOOMR.window || !BOOMR.window.document) {
 		return;
 	}
 
 	// register as a SPA plugin
 	BOOMR.plugins.SPA.register("History");
 
+	impl.a = BOOMR.window.document.createElement("A");
+
+	/* BEGIN_DEBUG */
 	/**
 	 * Debug logging for this instance
 	 *
 	 * @param {string} msg Message
 	 */
-	function log(msg) {
+	function debugLog(msg) {
 		BOOMR.debug(msg, "History");
-	}
+	};
+	/* END_DEBUG */
 
 	/**
-	 * @method
-	 * @desc
-	 * If enabled and another route change is not in progress send a route_change() event
-	 * Otherwise log a warning and set hadMissed a routeChange as missed
-	 */
-	function routeChange() {
-		if (!impl.enabled) {
-			log("Not enabled - we've missed a routeChange");
-			impl.hadMissedRouteChange = true;
-			impl.routeChangeInProgress = false;
-		}
-		else {
-			if (!impl.routeChangeInProgress) {
-				log("routeChange triggered, sending route_change() event");
-				impl.routeChangeInProgress = true;
-				BOOMR.plugins.SPA.route_change();
-			}
-			else {
-				log("routeChangeInProgress, not triggering");
-			}
-		}
-	}
-
-	/**
-	 * @method
-	 * @desc
-	 * Hook into History Object either custom to your application or general on the window object
+	 * Hook into `window.history` Object
 	 *
 	 * This function will override the following functions if available:
-	 *   - listen
-	 *   - transitionTo
 	 *   - pushState
-	 *   - setState
 	 *   - replaceState
 	 *   - go
-	 *
-	 * @param {object} history - Custom or global History object instance
+	 *   - back
+	 *   - forward
+	 * And listen to event:
+	 *   - hashchange
+	 *   - popstate
 	 */
-	function hook(history) {
-		if (!history) {
-			history = BOOMR.window.history;
+	function setup() {
+		var history = BOOMR.window.history;
+
+		//
+		// History API overrides
+		//
+
+		if (typeof history.pushState === "function") {
+			history.pushState = (function(_pushState) {
+				return function(state, title, url) {
+					debugLog("pushState, title: " + title + " url: " + url);
+					impl.routeChange({type: "pushState", fromUrl: BOOMR.window.document.URL, toUrl: url});
+					return _pushState.apply(this, arguments);
+				};
+			})(history.pushState);
 		}
 
-		var orig_history = {
-			listen: history.listen,
-			transitionTo: history.transitionTo,
-			pushState: history.pushState,
-			setState: history.setState,
-			replaceState: history.replaceState,
-			go: history.go
-		};
+		if (impl.monitorReplaceState && typeof history.replaceState === "function") {
+			history.replaceState = (function(_replaceState) {
+				return function(state, title, url) {
+					var fromUrl = BOOMR.window.document.URL, toUrl = fromUrl;
 
-		function spa_init(title, url) {
-			if (!impl.routeChangeInProgress) {
-				if (title && url) {
-					BOOMR.fireEvent("spa_init", [BOOMR.plugins.SPA.current_spa_nav(), url]);
-				}
-				else if (title && !url) {
-					BOOMR.fireEvent("spa_init", [BOOMR.plugins.SPA.current_spa_nav(), title]);
-				}
-			}
+					// url is an optional param
+					if (arguments.length >= 3 && typeof url !== "undefined" && url !== null) {
+						impl.a.href = url;  // normalize url
+						toUrl = impl.a.href;
+					}
+
+					// only issue route change if a nav is not in progress or the URL is changing
+					if (!BOOMR.plugins.SPA.isSpaNavInProgress() || toUrl !== fromUrl) {
+						debugLog("replaceState, title: " + title + " url: " + url);
+						impl.routeChange({type: "pushState", fromUrl: BOOMR.window.document.URL, toUrl: url});
+					}
+					else {
+						debugLog("replaceState ignored (no URL change and a SPA nav is in progress), title: " + title + " url: " + url);
+					}
+					return _replaceState.apply(this, arguments);
+				};
+			})(history.replaceState);
 		}
 
-		history.setState = function() {
-			log("setState");
-			routeChange();
-			orig_history.setState.apply(this, arguments);
-		};
+		// we instrument go, back and forward because they are called earlier than the
+		// popstate event which gives AutoXHR a chance to setup the MO
+		if (typeof history.go === "function") {
+			history.go = (function(_go) {
+				return function(index) {
+					debugLog("go");
+					impl.routeChange({type: "go", fromUrl: BOOMR.window.document.URL});  // spa_init url will be the url before `go` runs .. for routefilter also
+					return _go.apply(this, arguments);
+				};
+			})(history.go);
+		}
 
-		history.listen = function() {
-			log("listen");
-			routeChange();
-			orig_history.listen.apply(this, arguments);
-		};
+		if (typeof history.back === "function") {
+			history.back = (function(_back) {
+				return function() {
+					debugLog("back");
+					impl.routeChange({type: "back", fromUrl: BOOMR.window.document.URL});  // spa_init url will be the url before `back` runs
+					return _back.apply(this, arguments);
+				};
+			})(history.back);
+		}
 
-		history.transitionTo = function() {
-			log("transitionTo");
-			routeChange();
-			orig_history.transitionTo.apply(this, arguments);
-		};
+		if (typeof history.forward === "function") {
+			history.forward = (function(_forward) {
+				return function() {
+					debugLog("forward");
+					impl.routeChange({type: "forward", fromUrl: BOOMR.window.document.URL});  // spa_init url will be the url before `forward` runs
+					return _forward.apply(this, arguments);
+				};
+			})(history.forward);
+		}
 
-		history.pushState = function(state, title, url) {
-			log("pushState");
-			spa_init(title, url);
-			routeChange();
-			orig_history.pushState.apply(this, arguments);
-		};
-
-		history.replaceState = function(state, title, url) {
-			log("replaceState");
-			spa_init(title, url);
-			routeChange();
-			orig_history.replaceState.apply(this, arguments);
-		};
-
-		history.go = function() {
-			log("go");
-			routeChange();
-			orig_history.go.apply(this, arguments);
-		};
-
+		// listen for hash changes.
+		// hashchange events may be available even if the browser does not support the History API
 		BOOMR.window.addEventListener("hashchange", function(event) {
-			log("hashchange");
-			if (!impl.routeChangeInProgress && event) {
-				BOOMR.fireEvent("spa_init", [BOOMR.plugins.SPA.current_spa_nav(), event.newURL]);
-			}
-			routeChange();
+			var url = (event || {}).newURL;
+			debugLog("hashchange " + url);
+			impl.routeChange({type: "hashchange", toUrl: url});
 		});
 
-		BOOMR.subscribe("onbeacon", function() {
-			log("Beacon sending, resetting routeChangeInProgress.");
-			impl.routeChangeInProgress = false;
-		});
+		/**
+		 * Add event listener for `popstate`
+		 */
+		function aelPopstate() {
+			// popstate events may be available even if the browser does not support the History API
+			BOOMR.window.addEventListener("popstate", function(event) {
+				debugLog("popstate");
+				impl.routeChange({type: "popstate", toUrl: BOOMR.window.document.URL});
+			});
+		}
+
+		// add listener for popstate after page load has occured so that we don't receive an unwanted popstate
+		// event at onload
+		if (BOOMR.hasBrowserOnloadFired()) {
+			aelPopstate();
+		}
+		else {
+			// the event listener will be registered early enough to get an unwanted event if we don't use setTimeout
+			BOOMR.window.addEventListener("load", function() { setTimeout(aelPopstate, 0); });
+		}
+
+		// listen for a beacon
+		BOOMR.subscribe("beacon", impl.resetRouteChangeInProgress);
+
+		// listen for spa cancellations
+		BOOMR.subscribe("spa_cancel", impl.resetRouteChangeInProgress);
+
+		// listen for spa inits. We're adding this to catch the event sent by the SPA plugin
+		BOOMR.subscribe("spa_init", impl.setRouteChangeInProgress);
+
+		// if browser onload event has happened, assume we missed the route change
+		impl.browserOnloadBeforeSetup = BOOMR.hasBrowserOnloadFired();
 
 		return true;
-	}
+	};
 
+	//
+	// Exports
+	//
 	BOOMR.plugins.History = {
+		/**
+		 * This plugin is always complete (ready to send a beacon)
+		 *
+		 * @returns {boolean} `true`
+		 * @memberof BOOMR.plugins.History
+		 */
 		is_complete: function() {
 			return true;
 		},
+
+		/**
+		 * Hooks Boomerang into the History events.
+		 *
+		 * @param {object} history Deprecated
+		 * @param {boolean} [hadRouteChange] Deprecated
+		 * event prior to this `hook()` call
+		 * @param {object} [options] Optional options. Can contain `routeFilter` and/or `routeChangeWaitFilter`
+		 *
+		 * @returns {@link BOOMR.plugins.History} The History plugin for chaining
+		 * @memberof BOOMR.plugins.History
+		 */
 		hook: function(history, hadRouteChange, options) {
-			if (impl.hooked) {
-				return this;
+			try {
+				debugLog("hook: " + JSON.stringify(options));
+			}
+			catch (e) {
+				debugLog("hook: can't stringify options");
 			}
 
-			if (hook(history)) {
-				BOOMR.plugins.SPA.hook(hadRouteChange, options);
-				impl.hooked = true;
+			options = options || {};
+			options.disableHardNav = impl.disableHardNav;
+
+			if (impl.routeFilter) {
+				options.routeFilter = impl.routeFilter;
+			}
+
+			if (impl.routeChangeWaitFilter) {
+				options.routeChangeWaitFilter = impl.routeChangeWaitFilter;
+			}
+
+			if (impl.routeChangeWaitFilterHardNavs) {
+				options.routeChangeWaitFilterHardNavs = impl.routeChangeWaitFilterHardNavs;
+			}
+
+			if (!impl.hooked && impl.monitorHistory) {
+				setup();
+			}
+
+			// allow to call again in case options changed
+			hadRouteChange = impl.browserOnloadBeforeSetup;
+			BOOMR.plugins.SPA.hook(hadRouteChange, options);
+
+			if (!impl.hooked && !impl.browserOnloadBeforeSetup && (!impl.disableHardNav || BOOMR.onloadFired())) {
+				// fire our route change asap so that we can listen for mutatations, etc
+				BOOMR.plugins.SPA.route_change();
+				impl.setRouteChangeInProgress();
+			}
+
+			impl.hooked = true;
+			return this;
+		},
+
+		/**
+		 * Initializes the plugin.
+		 *
+		 * @param {object} config Configuration
+		 * @param {boolean} [config.History.auto] Whether or not to automatically
+		 * instrument the `window.history` object.
+		 * If set to `false`, the React snippet should be used.
+		 * @param {boolean} [config.History.disableHardNav] Whether or not to disable SPA hard beacons
+		 * @param {function} [config.History.routeFilter] Route change filter callback function
+		 * @param {function} [config.History.routeChangeWaitFilter] Route change wait filter callback function
+		 * @param {boolean} [config.History.routeChangeWaitFilterHardNavs] Whether to apply wait filter on hard navs
+		 * @param {boolean} [config.History.monitorReplaceState] Whether or not to hook History.replaceState
+		 *
+		 * @returns {@link BOOMR.plugins.History} The History plugin for chaining
+		 * @example
+		 * BOOMR.init({
+		 *   History: {
+		 *     enabled: true
+		 *   });
+		 * });
+		 * @memberof BOOMR.plugins.History
+		 */
+		init: function(config) {
+			BOOMR.utils.pluginConfig(impl, config, "History",
+				["enabled", "monitorHistory", "disableHardNav",
+				 "routeFilter", "routeChangeWaitFilter", "routeChangeWaitFilterHardNavs",
+				 "monitorReplaceState"]);
+
+			if (impl.enabled) {
+				this.hook();
 			}
 
 			return this;
 		},
-		init: function(config) {
-			BOOMR.utils.pluginConfig(impl, config, "History", ["auto", "enabled"]);
 
-			if (impl.auto && impl.enabled) {
-				this.hook(undefined, true, {});
-			}
-		},
+		/**
+		 * Disables the History plugin
+		 *
+		 * @returns {@link BOOMR.plugins.History} The History plugin for chaining
+		 * @memberof BOOMR.plugins.History
+		 */
 		disable: function() {
 			impl.enabled = false;
 			return this;
 		},
+
+		/**
+		 * Enables the History plugin
+		 *
+		 * @returns {@link BOOMR.plugins.History} The History plugin for chaining
+		 * @memberof BOOMR.plugins.History
+		 */
 		enable: function() {
 			impl.enabled = true;
-
-			if (impl.hooked && impl.hadMissedRouteChange) {
-				impl.hadMissedRouteChange = false;
-				BOOMR.plugins.SPA.route_change();
-				impl.routeChangeInProgress = true;
-				log("Hooked and hadMissedRouteChange sending route_change!");
-			}
-
 			return this;
 		}
 	};
+
+	/* eslint-disable no-loop-func */
+	// create backwards compatible plugins that now use History
+	for (var i = 0; i < impl.DEPRECATED_PLUGINS.length; i++) {
+		var plugin_name = impl.DEPRECATED_PLUGINS[i];
+		BOOMR.plugins[plugin_name] = BOOMR.plugins.History;
+
+		BOOMR.plugins[plugin_name] = {
+			init: (function(_plugin_name) {
+				return function(config) {
+					BOOMR.utils.pluginConfig(impl, config, _plugin_name, ["enabled"]);
+
+					if (impl.enabled) {
+						debugLog("Deprecated: Initialized from " + _plugin_name + " config");
+						BOOMR.plugins.History.hook(undefined, undefined, {});
+					}
+
+					return BOOMR.plugins[_plugin_name];
+				};
+			})(plugin_name),
+			enable: BOOMR.plugins.History.enable,
+			// we don't want these plugins to have a `disable` function otherwise they will disable the History plugin
+			hook: BOOMR.plugins.History.hook,
+			is_complete: BOOMR.plugins.History.is_complete
+		};
+
+		// register as a SPA plugin (need this because the SPA plugin will look at each plugin config)
+		BOOMR.plugins.SPA.register(plugin_name);
+	}
+	/* eslint-enable no-loop-func */
 }());

@@ -90,6 +90,12 @@ module.exports = function(req, res) {
 			return res.redirect(302, file);
 		}
 
+		if (delay > 0) {
+			res.header("Cache-Control", "no-cache, no-store, must-revalidate");
+			res.header("Pragma", "no-cache");
+			res.header("Expires", 0);
+		}
+
 		if (sendACAO) {
 			headers["Access-Control-Allow-Origin"] = "*";
 		}
@@ -120,6 +126,11 @@ module.exports = function(req, res) {
 		}
 
 		var filePath = path.join(wwwRoot, file);
+
+		// ensure file requested is rooted to wwwRoot
+		if (filePath.indexOf(wwwRoot) !== 0) {
+			return res.sendStatus(404);
+		}
 
 		fs.exists(filePath, function(exists) {
 			if (!exists) {

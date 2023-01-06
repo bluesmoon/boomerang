@@ -12,58 +12,73 @@ BOOMR_test.templates.XHR["00-xhrs-duplicate"] = function() {
 			done,
 			function() {
 				t.ensureBeaconCount(done, 5);
-			});
+			},
+			this.skip.bind(this));
 	});
 
-	function check(b, secs) {
-		assert.closeTo(b.t_done, secs * 1000, 250);
-		assert.closeTo(b.nt_res_end - b.nt_req_st, secs * 1000, 250, "response should be close to " + secs + " seconds");
+	function check(b, ms) {
+		assert.closeTo(b.t_done, ms, 250);
+		assert.closeTo(b.nt_res_end - b.nt_req_st, b.t_resp, 250);
+
 		if (b.nt_fet_st) {
 			// not avail in PhantomJS
 			assert.ok(b.nt_fet_st <= b.nt_req_st, "nt_fet_st should be at most nt_req_st");
 		}
+
 		assert.ok(b.nt_req_st <= b.nt_res_st, "nt_req_st should be at most nt_res_st");
 		assert.ok(b.nt_res_st <= b.nt_res_end, "nt_res_st should be at most nt_res_end");
 		assert.ok(b.nt_res_end <= b.nt_load_st, "nt_res_end should be at most nt_load_st");
 	}
 
-	it("Should have the next beacon contain a time of around around 0 seconds", function(done) {
-		this.timeout(30000);
-		t.ifAutoXHR(
-			done,
-			function() {
-				check(tf.beacons[1], 0);
-				done();
-			});
+	describe("Beacon 2 (xhr)", function() {
+		var i = 1;
+		it("Should have a time of around around " + window.xhrTimes[i - 1] + " ms", function(done) {
+			t.ifAutoXHR(
+				done,
+				function() {
+					check(tf.beacons[i], window.xhrTimes[i - 1]);
+					done();
+				},
+				this.skip.bind(this));
+		});
 	});
 
-	it("Should have the next beacon contain a time of around around 1 seconds", function(done) {
-		this.timeout(30000);
-		t.ifAutoXHR(
-			done,
-			function() {
-				check(tf.beacons[2], 1);
-				done();
-			});
+	describe("Beacon 3 (xhr)", function() {
+		var i = 2;
+		it("Should have a time of around around " + window.xhrTimes[i - 1] + " ms", function(done) {
+			t.ifAutoXHR(
+				done,
+				function() {
+					check(tf.beacons[i], window.xhrTimes[i - 1]);
+					done();
+				},
+				this.skip.bind(this));
+		});
 	});
 
-	it("Should have the next beacon contain a time of around around 2 seconds", function(done) {
-		this.timeout(30000);
-		t.ifAutoXHR(
-			done,
-			function() {
-				check(tf.beacons[3], 2);
-				done();
-			});
+	describe("Beacon 4 (xhr)", function() {
+		var i = 3;
+		it("Should have a time of around around " + window.xhrTimes[i - 1] + " ms", function(done) {
+			t.ifAutoXHR(
+				done,
+				function() {
+					check(tf.beacons[i], window.xhrTimes[i - 1]);
+					done();
+				},
+				this.skip.bind(this));
+		});
 	});
 
-	it("Should have the next beacon contain a time of around around 3 seconds", function(done) {
-		this.timeout(30000);
-		t.ifAutoXHR(
-			done,
-			function() {
-				check(tf.beacons[4], 3);
-				done();
-			});
+	describe("Beacon 5 (xhr)", function() {
+		var i = 4;
+		it("Should have a time of around around " + window.xhrTimes[i - 1] + " ms", function(done) {
+			t.ifAutoXHR(
+				done,
+				function() {
+					check(tf.beacons[i], window.xhrTimes[i - 1]);
+					done();
+				},
+				this.skip.bind(this));
+		});
 	});
 };

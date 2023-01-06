@@ -25,6 +25,10 @@ if (window.route_wait) {
 	hookOptions.routeChangeWaitFilter = window.route_wait;
 }
 
+if (window.history_route_filter) {
+	hookOptions.routeFilter = window.history_route_filter;
+}
+
 function hookHistoryBoomerang() {
 	if (window.BOOMR && BOOMR.version) {
 		if (BOOMR.plugins && BOOMR.plugins.History) {
@@ -34,7 +38,7 @@ function hookHistoryBoomerang() {
 	}
 }
 
-if (!window.reactDisableBoomerangHook) {
+if (!window.disableBoomerangHook) {
 	if (!hookHistoryBoomerang()) {
 		if (document.addEventListener) {
 			document.addEventListener("onBoomerangLoaded", hookHistoryBoomerang);
@@ -51,27 +55,13 @@ if (!window.reactDisableBoomerangHook) {
 
 const App = React.createClass({
 	getInitialState() {
-		window.custom_metric_1 = 11;
-		window.custom_metric_2 = function() {
-			return 22;
-		};
-
-		window.custom_timer_1 = 11;
-		window.custom_timer_2 = function() {
-			return 22;
-		};
-
-		if (typeof window.performance !== "undefined" &&
-			typeof window.performance.mark === "function") {
-			window.performance.mark("mark_usertiming");
-		}
-
 		var that = this;
 		if ( window.nav_routes && window.nav_routes.hasOwnProperty("length") && window.nav_routes.length > 0) {
 			if (!subscribed) {
-				BOOMR.subscribe("onbeacon", function(beacon) {
-					// only continue for SPA beacons
-					if (!BOOMR.utils.inArray(beacon["http.initiator"], BOOMR.constants.BEACON_TYPE_SPAS)) {
+				BOOMR.subscribe("beacon", function(beacon) {
+					// only continue for non-early SPA beacons
+					if ((!BOOMR.utils.inArray(beacon["http.initiator"], BOOMR.constants.BEACON_TYPE_SPAS) ||
+					    typeof beacon.early !== "undefined") && !window.call_page_ready) {
 						return;
 					}
 
@@ -102,10 +92,26 @@ const Home = React.createClass({
 	getInitialState() {
 		var images;
 
+		// these overwrite what was in the HTML
+		window.custom_metric_1 = 11;
+		window.custom_metric_2 = function() {
+			return 22;
+		};
+
+		window.custom_timer_1 = 11;
+		window.custom_timer_2 = function() {
+			return 22;
+		};
+
+		if (typeof window.performance !== "undefined" &&
+			typeof window.performance.mark === "function") {
+			window.performance.mark("mark_usertiming");
+		}
+
 		if (typeof window.imgs !== "undefined" && window.imgs.hasOwnProperty("length")) {
 			images = window.imgs;
 		} else {
-			images = [];
+			images = [0];
 		}
 
 		var state =  {
@@ -121,27 +127,51 @@ const Home = React.createClass({
 		return state;
 	},
 	componentDidMount() {
-		var homeXHR = new XMLHttpRequest();
-		homeXHR.addEventListener("load", function (homeHtml) {
-			if(this.isMounted()) {
-				this.setState({
-					home: homeHtml.target.response
-				});
-			}
-		}.bind(this));
-		homeXHR.open("GET", "support/home.html?rnd=" + (Math.round(Math.random() * 1000)));
-		homeXHR.send(null);
+		if (!window.use_fetch) {
+			var homeXHR = new XMLHttpRequest();
+			homeXHR.addEventListener("load", function(homeHtml) {
+				if (this.isMounted()) {
+					this.setState({
+						home: homeHtml.target.response
+					});
+				}
+			}.bind(this));
+			homeXHR.open("GET", "support/home.html?rnd=" + (Math.round(Math.random() * 1000)));
+			homeXHR.send(null);
 
-		var widgetsXHR = new XMLHttpRequest();
-		widgetsXHR.addEventListener("load", function (result) {
-			if(this.isMounted()) {
-				this.setState({
-					widgets: JSON.parse(result.target.response)
+			var widgetsXHR = new XMLHttpRequest();
+			widgetsXHR.addEventListener("load", function(result) {
+				if (this.isMounted()) {
+					this.setState({
+						widgets: JSON.parse(result.target.response)
+					});
+				}
+			}.bind(this));
+			widgetsXHR.open("GET", "/delay?delay=250&file=/pages/12-react/support/widgets.json?rnd=" + (Math.round(Math.random() * 1000)));
+			widgetsXHR.send(null);
+		}
+		else {
+			var that = this;
+			fetch("support/home.html?rnd=" + (Math.round(Math.random() * 1000)))
+				.then((response) => response.text())
+				.then(function(data) {
+					if (that.isMounted()) {
+						that.setState({
+							home: data
+						});
+					}
 				});
-			}
-		}.bind(this));
-		widgetsXHR.open("GET", "support/widgets.json?rnd=" + (Math.round(Math.random() * 1000)));
-		widgetsXHR.send(null);
+
+			fetch("/delay?delay=250&file=/pages/12-react/support/widgets.json?rnd=" + (Math.round(Math.random() * 1000)))
+				.then((response) => response.json())
+				.then(function(data) {
+					if (that.isMounted()) {
+						that.setState({
+							widgets: data
+						});
+					}
+				});
+		}
 	},
 	cartMarkup() {
 		return { __html: this.state.home };
@@ -154,9 +184,29 @@ const Home = React.createClass({
 		}
 		return widgetsElements;
 	},
+	imageOnload() {
+		if (window.call_page_ready && !window.boomr_t_done) {
+			window.boomr_t_done = BOOMR.now();
+			BOOMR.page_ready();
+		}
+	},
 	render() {
 		var widgetsElements = this.renderWidgets();
+		if (window.window.late_imgs && !this.state.addedLates) {
+			var rnd = this.state.rnd;
+			this.state.addedLates = true;
+			setTimeout(function() {
+				var content = document.getElementById("root");
 
+				window.window.late_imgs.forEach(function(imgDelay) {
+					var img = document.createElement("img");
+					if (imgDelay > 0) {
+						img.src = `/delay?delay=${imgDelay}&id=late&file=pages/12-react/support/img.jpg&id=home&rnd=${rnd}`;
+						content.appendChild(img);
+					}
+				});
+			}, 500);
+		}
 		if (!this.state.hide_imgs) {
 			var images = [];
 			for (var delayIndex in  this.state.imgs) {
@@ -166,13 +216,15 @@ const Home = React.createClass({
 				};
 				var src = `/delay?delay=${this.state.imgs[delayIndex]}&file=pages/12-react/support/img.jpg&id=home&rnd=${this.state.rnd}`;
 				images.push(<div className="image-home" key={delayIndex}>
-				  <img key={delayIndex} src={src} style={style}/>
+				  <img onLoad={this.imageOnload} key={delayIndex} src={src} style={style}/>
 				</div>);
 			}
-
 			return (
 				<div className="content">
 					<div dangerouslySetInnerHTML={this.cartMarkup()} />
+					<div className="cart-container" style={{display: "none"}}>
+						<div id="cart-total">$444.44</div>
+					</div>
 					{images}
 					<div>
 						<ul>
@@ -198,22 +250,57 @@ const Home = React.createClass({
 
 const Widget = React.createClass({
 	getInitialState() {
+		var wid = this.props.params.id;
+
+		// these overwrite what was in the HTML
+		window.custom_metric_1 = wid;
+		window.custom_metric_2 = function() {
+			return 10 * wid;
+		};
+
+		window.custom_timer_1 = wid;
+		window.custom_timer_2 = function() {
+			return 10 * wid;
+		};
+
 		return {
 			rnd: '' + (Math.random() * 1000),
-			id: this.props.params.id
+			id: wid
 		};
 	},
 	componentDidMount() {
-		var widgetXHR = new XMLHttpRequest();
-		widgetXHR.addEventListener("load", function(widgetHtml) {
-			if(this.isMounted()) {
-				this.setState({
-					widgetHtml: widgetHtml.target.response
-				});
-			}
-		}.bind(this));
-		widgetXHR.open("GET", "support/widget.html?rnd=" + (Math.round(Math.random() * 1000)));
-		widgetXHR.send(null);
+		var url;
+		if (this.props.params.delay) {
+			url = "/delay?delay=" + this.props.params.delay + "&file=/pages/12-react/support/widget.html?rnd=" + (Math.round(Math.random() * 1000));
+		}
+		else {
+			url = "support/widget.html?rnd=" + (Math.round(Math.random() * 1000));
+		}
+
+		if (!window.use_fetch) {
+			var widgetXHR = new XMLHttpRequest();
+			widgetXHR.addEventListener("load", function(widgetHtml) {
+				if (this.isMounted()) {
+					this.setState({
+						widgetHtml: widgetHtml.target.response
+					});
+				}
+			}.bind(this));
+			widgetXHR.open("GET", url);
+			widgetXHR.send(null);
+		}
+		else {
+			var that = this;
+			fetch(url)
+			.then((response) => response.text())
+			.then(function(data) {
+				if (that.isMounted()) {
+					that.setState({
+						widgetHtml: data
+					});
+				}
+			});
+		}
 	},
 	widgetMarkup() {
 		return { __html: this.state.widgetHtml };
@@ -224,10 +311,13 @@ const Widget = React.createClass({
 			height: "auto"
 		};
 		var image = <div className="image" key={this.props.params.id}><img key={this.props.params.id} src={`/delay?delay=${this.props.params.id}000&file=pages/12-react/support/img.jpg&id=${this.props.params.id}&rnd=${this.state.rnd}`} style={style}></img></div>;
-
+		var carttotal = this.props.params.id * 11.11;
 		return (
 			<div>
 				<div dangerouslySetInnerHTML={this.widgetMarkup()} />
+				<div className="cart-container" style={{display: "none"}}>
+					<div id="cart-total">${carttotal}</div>
+				</div>
 				{image}
 			</div>
 		);
@@ -239,7 +329,7 @@ var routerInstance = render((
 			<Route path="/" component={App}>
 				<IndexRoute component={Home}/>
 				<Route path="widgets/:id" component={Widget}/>
+				<Route path="delay/:delay/widgets/:id" component={Widget}/>
 			</Route>
 		</Router>
 ), document.getElementById("root"));
-

@@ -9,8 +9,9 @@ BOOMR_test.templates.SPA["07-soft-nav-resources"] = function() {
 		t.validateBeaconWasSent(done);
 	});
 
-	it("Should have sent 5 beacons", function() {
-		assert.equal(tf.beacons.length, 5);
+	it("Should have sent five beacons", function(done) {
+		this.timeout(10000);
+		t.ensureBeaconCount(done, 5);
 	});
 
 	it("Should have sent the first beacon as http.initiator = spa_hard", function() {
@@ -29,6 +30,9 @@ BOOMR_test.templates.SPA["07-soft-nav-resources"] = function() {
 				assert.equal(tf.beacons[i]["rt.nstart"], BOOMR.plugins.RT.navigationStart());
 			}
 		}
+		else {
+			return this.skip();
+		}
 	});
 
 	//
@@ -40,29 +44,41 @@ BOOMR_test.templates.SPA["07-soft-nav-resources"] = function() {
 	});
 
 	it("Should have the first beacon take as long as the first img load (if MutationObserver and NavigationTiming are supported)", function() {
-		if (window.MutationObserver && typeof BOOMR.plugins.RT.navigationStart() !== "undefined") {
+		if (t.isMutationObserverSupported() && typeof BOOMR.plugins.RT.navigationStart() !== "undefined") {
 			t.validateBeaconWasSentAfter(0, "img.jpg&id=home", 500, 3000, 30000);
+		}
+		else {
+			return this.skip();
 		}
 	});
 
 	it("Should have the first beacon take as long as the first img load (if MutationObserver is supported but NavigationTiming is not)", function() {
-		if (window.MutationObserver && typeof BOOMR.plugins.RT.navigationStart() === "undefined") {
+		if (t.isMutationObserverSupported() && typeof BOOMR.plugins.RT.navigationStart() === "undefined") {
 			var b = tf.beacons[0];
 			assert.equal(b.t_done, undefined);
+		}
+		else {
+			return this.skip();
 		}
 	});
 
 	it("Should have the first beacon take as long as the XHRs (if MutationObserver is not supported but NavigationTiming is)", function() {
-		if (typeof window.MutationObserver === "undefined" && typeof BOOMR.plugins.RT.navigationStart() !== "undefined") {
+		if (!t.isMutationObserverSupported() && typeof BOOMR.plugins.RT.navigationStart() !== "undefined") {
 			t.validateBeaconWasSentAfter(0, "widgets.json", 500, 0, 30000, false);
+		}
+		else {
+			return this.skip();
 		}
 	});
 
 	it("Shouldn't have the first beacon have a load time (if MutationObserver and NavigationTiming are not supported)", function() {
-		if (typeof window.MutationObserver === "undefined" && typeof BOOMR.plugins.RT.navigationStart() === "undefined") {
+		if (!t.isMutationObserverSupported() && typeof BOOMR.plugins.RT.navigationStart() === "undefined") {
 			var b = tf.beacons[0];
 			assert.equal(b.t_done, undefined);
 			assert.equal(b["rt.start"], "none");
+		}
+		else {
+			return this.skip();
 		}
 	});
 
@@ -75,18 +91,24 @@ BOOMR_test.templates.SPA["07-soft-nav-resources"] = function() {
 	});
 
 	it("Should have sent the second beacon with a timestamp of at least 1 seconds (if MutationObserver is supported)", function() {
-		if (window.MutationObserver) {
+		if (t.isMutationObserverSupported()) {
 			// because of the widget IMG delaying 1 second
 			var b = tf.beacons[1];
 			assert.operator(b.t_done, ">=", 1000);
 		}
+		else {
+			return this.skip();
+		}
 	});
 
 	it("Should have sent the second beacon with a timestamp of at least 1 millisecond (if MutationObserver is not supported)", function() {
-		if (typeof window.MutationObserver === "undefined") {
+		if (!t.isMutationObserverSupported()) {
 			// because of the widget IMG delaying 1 second but we couldn't track it because no MO support
 			var b = tf.beacons[1];
 			assert.operator(b.t_done, ">=", 0);
+		}
+		else {
+			return this.skip();
 		}
 	});
 
@@ -105,15 +127,18 @@ BOOMR_test.templates.SPA["07-soft-nav-resources"] = function() {
 	});
 
 	it("Should have sent the third beacon with a timestamp of at least 2 seconds (if MutationObserver is supported)", function() {
-		if (window.MutationObserver) {
+		if (t.isMutationObserverSupported()) {
 			// because of the widget IMG delaying 2 second
 			var b = tf.beacons[2];
 			assert.operator(b.t_done, ">=", 2000);
 		}
+		else {
+			return this.skip();
+		}
 	});
 
 	it("Should have sent the third beacon with a timestamp of at least 1 millisecond (if MutationObserver is not supported)", function() {
-		if (typeof window.MutationObserver === "undefined") {
+		if (!t.isMutationObserverSupported()) {
 			// because of the widget IMG delaying 2 seconds but we couldn't track it because no MO support
 			var b = tf.beacons[2];
 			assert.operator(b.t_done, ">=", 0);
@@ -135,18 +160,24 @@ BOOMR_test.templates.SPA["07-soft-nav-resources"] = function() {
 	});
 
 	it("Should have sent the fourth beacon with a timestamp of at least 3 seconds (if MutationObserver is supported)", function() {
-		if (window.MutationObserver) {
+		if (t.isMutationObserverSupported()) {
 			// because of the widget IMG delaying 3 second
 			var b = tf.beacons[3];
 			assert.operator(b.t_done, ">=", 3000);
 		}
+		else {
+			return this.skip();
+		}
 	});
 
 	it("Should have sent the fourth beacon with a timestamp of at least 1 millisecond (if MutationObserver is not supported)", function() {
-		if (typeof window.MutationObserver === "undefined") {
+		if (!t.isMutationObserverSupported()) {
 			// because of the widget IMG delaying 3 seconds but we couldn't track it because no MO support
 			var b = tf.beacons[3];
 			assert.operator(b.t_done, ">=", 0);
+		}
+		else {
+			return this.skip();
 		}
 	});
 
@@ -171,7 +202,7 @@ BOOMR_test.templates.SPA["07-soft-nav-resources"] = function() {
 	});
 
 	it("Should have sent the fifth beacon without any NavigationTiming metrics (if MutationObserver and NavigationTiming are supported)", function() {
-		if (typeof window.MutationObserver !== "undefined" && typeof BOOMR.plugins.RT.navigationStart() !== "undefined") {
+		if (t.isMutationObserverSupported() && typeof BOOMR.plugins.RT.navigationStart() !== "undefined") {
 			var b = tf.lastBeacon();
 			assert.isUndefined(b.nt_red_cnt);
 			assert.isUndefined(b.nt_nav_type);
@@ -195,6 +226,9 @@ BOOMR_test.templates.SPA["07-soft-nav-resources"] = function() {
 			assert.isUndefined(b.nt_load_end);
 			assert.isUndefined(b.nt_unload_st);
 			assert.isUndefined(b.nt_unload_end);
+		}
+		else {
+			return this.skip();
 		}
 	});
 };

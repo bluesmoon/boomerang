@@ -63,13 +63,16 @@ angular.module("app", ["ngResource", "ui.router"])
 			$locationProvider.html5Mode(true);
 		}
 
-		$urlRouterProvider.otherwise("102-ui-router.html");
+		// grab the last portion of the path so that we can use this from multiple tests
+		var pathName = window.location.pathname.split("/");
+		pathName = pathName[pathName.length - 1];
+		$urlRouterProvider.otherwise(pathName);
 
 		// NOTE: Using absolute urls instead of relative URLs otherwise IE11 has problems
 		// resolving them in html5Mode
 		$stateProvider.
 			state("home", {
-				url: "/102-ui-router.html",
+				url: "/" + pathName,
 				templateUrl: "/pages/05-angular/support/home.html",
 				controller: "mainCtrl"
 			}).
@@ -118,9 +121,9 @@ angular.module("app", ["ngResource", "ui.router"])
 
 		if (typeof window.angular_nav_routes !== "undefined" &&
 			Object.prototype.toString.call(window.angular_nav_routes) === "[object Array]") {
-			BOOMR.subscribe("onbeacon", function(beacon) {
+			handler = function(beacon) {
 				// only continue for SPA beacons
-				if (!BOOMR.utils.inArray(beacon["http.initiator"], BOOMR.constants.BEACON_TYPE_SPAS)) {
+				if (beacon && !BOOMR.utils.inArray(beacon["http.initiator"], BOOMR.constants.BEACON_TYPE_SPAS)) {
 					return;
 				}
 
@@ -129,8 +132,25 @@ angular.module("app", ["ngResource", "ui.router"])
 
 					$timeout(function() {
 						$location.url(nextRoute);
+
+						if (window.angularBroadcastLocationAfterStateChange) {
+							$timeout(function() {
+								// for
+								$rootScope.$broadcast("$locationChangeStart", null, null, null, null);
+							}, 500);
+						}
 					}, 100);
 				}
-			});
+
+				// set a timeout that calls the handler if beacon hasn't fired
+				if (window.angular_nav_route_timeout) {
+					if (window.angular_timerid) {
+						clearTimeout(window.angular_timerid);
+					}
+					window.angular_timerid = setTimeout(handler, window.angular_nav_route_timeout);
+				}
+			};
+
+			BOOMR.subscribe("beacon", handler);
 		}
 	}]);

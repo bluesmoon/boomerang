@@ -7,8 +7,9 @@ var path = require("path");
 var fs = require("fs");
 var readline = require("readline");
 var express = require("express");
-var http = require("http");
 var compress = require("compression");
+var http = require("http");
+var https = require("https");
 
 //
 // Load env.json
@@ -16,7 +17,7 @@ var compress = require("compression");
 var envFile = path.resolve(path.join(__dirname, "env.json"));
 
 if (!fs.existsSync(envFile)) {
-	throw new Error("Please create " + envFile + ". There's a env.json.sample in the same dir.");
+	throw new Error("[APP] Please create " + envFile + ". There's a env.json.sample in the same dir.");
 }
 
 // load JSON
@@ -34,14 +35,21 @@ if (!fs.existsSync(wwwRoot)) {
 	wwwRoot = path.join(__dirname, "..");
 }
 
-var app = express();
-var server = http.createServer(app);
+var credentials = {};
+try {
+	var privatekey  = fs.readFileSync(path.join(__dirname, env.privatekey), "utf8");
+	var certificate = fs.readFileSync(path.join(__dirname, env.certificate), "utf8");
+	credentials = {
+		key: privatekey,
+		cert: certificate
+	};
+	console.log("[APP] Found credentials, key: " + env.privatekey + " cert: " + env.certificate);
+}
+catch (e) {
+	console.log("[APP] Credentials not found ", e);
+}
 
-// listen
-var port = process.env.PORT || env.port;
-server.listen(port, function() {
-	console.log("Server starting on port " + port + " for " + wwwRoot);
-});
+var app = express();
 
 // ensure content is compressed
 app.use(compress());
@@ -61,28 +69,69 @@ function respond301(req, res) {
 	res.redirect(301, file);
 }
 
+function respond302(req, res) {
+	var q = require("url").parse(req.url, true).query;
+	var to = q.to || "/blackhole";
+	res.redirect(to);
+}
+
+function respond500(req, res) {
+	res.status(500).send();
+}
+
+function dropRequest(req, res) {
+	// drop request, no http response
+	req.socket.destroy();
+}
+
 //
 // Routes
 //
 
-// /blackhole and /204: returns a 204
+// Favicon empty response
+app.get("/favicon.ico", respond204);
+
+// /beacon, /beacon/no-op and /blackhole: returns a 204
+app.get("/beacon", respond204);
+app.post("/beacon", respond204);
+app.get("/beacon/no-op", respond204);
+app.post("/beacon/no-op", respond204);
 app.get("/blackhole", respond204);
 app.post("/blackhole", respond204);
+app.get("/blackhole/*", respond204);
+app.post("/blackhole/*", respond204);
 
 // /delay - delays a response
 app.get("/delay", require("./route-delay"));
 app.post("/delay", require("./route-delay"));
 
-// /301 - 301 redirects
+// /redirect - 301 redirects
 app.get("/redirect", respond301);
 app.post("/redirect", respond301);
+
+// /redirect - 302
+app.get("/302", respond302);
+
+// /500 - Internal Server Error
+app.get("/500", respond500);
+app.post("/500", respond500);
 
 // /chunked
 app.get("/chunked", require("./route-chunked"));
 app.post("/chunked", require("./route-chunked"));
 
-app.get("/blackhole/no-op", respond204);
-app.post("/blackhole/no-op", respond204);
+// /json - JSON output
+app.get("/json", require("./route-json"));
+app.post("/json", require("./route-json"));
+
+// /drop
+app.get("/drop", dropRequest);
+app.post("/drop", dropRequest);
+
+// load in any additional routes
+if (fs.existsSync(path.resolve(path.join(__dirname, "routes.js")))) {
+	require("./routes")(app);
+}
 
 // for every GET, look for a file with the same name appended with ".headers"
 // if found, parse the headers and write them on the response
@@ -101,7 +150,7 @@ app.get("/*", function(req, res, next) {
 	});
 	input.on("open", function() {
 		var headers = {};
-		var lineReader = readline.createInterface({input: input});
+		var lineReader = readline.createInterface({ input: input });
 		lineReader.on("line", function(line) {
 			var colon = ":";
 			var colonIndex = line.indexOf(colon);
@@ -120,4 +169,37 @@ app.get("/*", function(req, res, next) {
 
 // all static content follows afterwards
 /*eslint dot-notation:0*/
+
+// do not cache certain static resources
+app.use("/assets", express.static(path.join(wwwRoot, "/assets"), {
+	etag: false,
+	lastModified: false,
+	index: false,
+	cacheControl: false,
+	setHeaders: function(res, _path) {
+		res.setHeader("Cache-Control", "no-cache, no-store");
+	}
+}));
+
 app.use(express.static(wwwRoot));
+
+// this needs to be before `app.listen(...)`
+require("express-middleware-server-timing")(app);
+
+// listen
+var port = process.env.PORT || env.port;
+var scheme = (process.argv.length >= 2 && process.argv[2]) || "http";
+
+if (scheme === "https" && credentials.key && credentials.cert) {
+	var httpsServer = https.createServer(credentials, app);
+
+	httpsServer.listen(port, function() {
+		console.log("[APP] HTTPS Server starting on port " + port + " for " + wwwRoot);
+	});
+}
+else {
+	var httpServer = http.createServer(app);
+	httpServer.listen(port, function() {
+		console.log("[APP] HTTP Server starting on port " + port + " for " + wwwRoot);
+	});
+}

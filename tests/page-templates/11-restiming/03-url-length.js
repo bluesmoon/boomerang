@@ -14,6 +14,9 @@ describe("e2e/11-restiming/03-url-length", function() {
 			var b = tf.lastBeacon();
 			assert.isDefined(b.restiming);
 		}
+		else {
+			this.skip();
+		}
 	});
 
 	it("Should have trimmed the long URL (if ResourceTiming is supported)", function() {
@@ -23,9 +26,12 @@ describe("e2e/11-restiming/03-url-length", function() {
 			var resources = ResourceTimingDecompression.decompressResources(JSON.parse(b.restiming));
 
 			// find our img
-			assert.isDefined(resources.find(function(r) {
+			assert.isDefined(BOOMR.utils.arrayFind(resources, function(r) {
 				return r.name.indexOf("blackhole?...") !== -1;
 			}), "Find blackhole?...");
+		}
+		else {
+			this.skip();
 		}
 	});
 
@@ -35,9 +41,12 @@ describe("e2e/11-restiming/03-url-length", function() {
 			var resources = ResourceTimingDecompression.decompressResources(JSON.parse(b.restiming));
 
 			// find our img
-			assert.isDefined(resources.find(function(r) {
+			assert.isDefined(BOOMR.utils.arrayFind(resources, function(r) {
 				return r.name.indexOf("/foo/...") !== -1;
 			}), "Find /foo/...");
+		}
+		else {
+			this.skip();
 		}
 	});
 });

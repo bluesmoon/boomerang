@@ -18,11 +18,13 @@ BOOMR_test.init({
 window.callCount = 0;
 
 if (window.addEventListener && window.postMessage) {
-	function errorFunction() {
-		window.callCount++;
+	function errorFunction(message) {
+		if (message && message.data === "foo") {
+			window.callCount++;
 
-		// will throw an error
-		a.foo = false;
+			// will throw an error
+			a.foo = false;
+		}
 	}
 
 	window.addEventListener("message", errorFunction);

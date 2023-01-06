@@ -9,73 +9,216 @@ var path = require("path");
 var fse = require("fs-extra");
 var stripJsonComments = require("strip-json-comments");
 var grunt = require("grunt");
+var async = require("async");
+
 
 //
 // Constants
 //
+
+//
+// Domains for test purposes
+//
+var DEFAULT_TEST_MAIN_DOMAIN = "boomerang-test.local";
+var DEFAULT_TEST_SECONDARY_DOMAIN = "boomerang-test2.local";
+
+var boomerangE2ETestDomain = grunt.option("main-domain") || DEFAULT_TEST_MAIN_DOMAIN;
+var boomerangE2ESecondDomain = grunt.option("secondary-domain") || DEFAULT_TEST_SECONDARY_DOMAIN;
+
 var BUILD_PATH = "build";
 var TEST_BUILD_PATH = path.join("tests", "build");
 var TEST_RESULTS_PATH = path.join("tests", "results");
-var TEST_DEBUG_PORT = 4002;
-var TEST_URL_BASE = grunt.option("test-url") || "http://localhost:4002";
+var TEST_DEBUG_PORT = parseInt(grunt.option("test-port")) || 4002;
+var TEST_SCHEME = grunt.option("test-scheme") || "http";
+var TEST_URL_BASE = grunt.option("test-url") || TEST_SCHEME + "://" + boomerangE2ETestDomain + ":" + TEST_DEBUG_PORT;
+
+var SELENIUM_ADDRESS = grunt.option("selenium-address") || "http://" + boomerangE2ETestDomain + ":4444/wd/hub";
+var E2E_BASE_URL = TEST_SCHEME + "://" + boomerangE2ETestDomain + ":" + TEST_DEBUG_PORT + "/";
+
+var DEFAULT_BROWSER = grunt.option("test-browser") || "ChromeHeadless";
 
 var DEFAULT_UGLIFY_BOOMERANGJS_OPTIONS = {
 	preserveComments: false,
 	mangle: {
 		// for errors.js
-		except: [
+		reserved: [
 			"createStackForSend",
 			"loadFinished",
 			"BOOMR_addError",
 			"BOOMR_plugins_errors_onerror",
 			"BOOMR_plugins_errors_onxhrerror",
 			"BOOMR_plugins_errors_console_error",
-			"BOOMR_plugins_errors_wrap"
+			"BOOMR_plugins_errors_wrap",
+			"BOOMR_plugins_errors_wrapped_function",
+			"BOOMR_plugins_errors_wrapped_removeEventListener"
 		]
 	},
+	ie8: true,
 	sourceMap: true,
 	compress: {
+		keep_fnames: true,
 		sequences: false
 	}
 };
 
+var SAUCELABS_CONFIG = {
+	username: process.env.CI_SAUCELABS_USERNAME,
+	key: function(){
+		return process.env.CI_SAUCELABS_KEY;
+	},
+	build: process.env.CI_BUILD_NUMBER,
+	tunneled: false
+};
+
+// Get WebDriver versions, allowing for a single argument or an array
+var webDriverVersions = grunt.option("webdriver-versions");
+if (Array.isArray(webDriverVersions)) {
+	webDriverVersions = webDriverVersions.join(" ");
+}
+
+function fileForHtml(file) {
+	return grunt.file.read(file)
+		.replace(/&/g, "&amp;")
+		.replace(/"/g, "&quot;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;");
+}
+
+/**
+ * Gets the build configuration
+ */
+function getBuildConfig() {
+	var buildConfig = {
+		server: grunt.option("server") || DEFAULT_TEST_MAIN_DOMAIN || "localhost",
+		beaconUrlsAllowed: grunt.option("beacon-urls-allowed") || ""
+	};
+
+	return buildConfig;
+}
+
 //
 // Grunt config
 //
-module.exports = function() {
+function getConfig() {
 	//
 	// Paths
 	//
 	var testsDir = path.join(__dirname, "tests");
+	var perfTestsDir = path.join(testsDir, "perf");
+	var pageTemplateSnippetsDir = path.join(testsDir, "page-template-snippets");
 	var pluginsDir = path.join(__dirname, "plugins");
+	var snippetsDir = path.join(__dirname, "snippets");
+
+	//
+	// Build numbers
+	//
+	var pkg = grunt.file.readJSON("package.json");
+	var buildNumber = grunt.option("build-number") || 0;
+	var releaseVersion = pkg.releaseVersion + "." + buildNumber;
+	var buildRevision = grunt.option("build-revision") || 0;
+	var buildSuffix = grunt.option("build-suffix") ? (grunt.option("build-suffix") + ".") : "";
+	var buildFlavor = grunt.option("build-flavor") || "";
+
+	if (buildFlavor) {
+		buildSuffix = buildFlavor + "." + buildSuffix;
+	}
 
 	//
 	// Determine source files:
 	//  boomerang.js and plugins/*.js order
 	//
 	var src = [ "boomerang.js" ];
+
+	// default plugins
 	var plugins = grunt.file.readJSON("plugins.json");
-	src.push(plugins.plugins);
+
+	// allow overwriting with user plugins (plugins.user.json)
+	try {
+		var userPlugins = grunt.file.readJSON("plugins.user.json");
+		if (userPlugins.plugins) {
+			// use the user plugins instead
+			grunt.log.ok("Using plugins.user.json");
+
+			plugins = userPlugins;
+		}
+	}
+	catch (e) {
+		// NOP
+	}
+
+	// use a specific flavor
+	if (buildFlavor) {
+		if (!plugins.flavors[buildFlavor]) {
+			return grunt.fail.fatal("Build flavor " + buildFlavor + " does not exist");
+		}
+
+		grunt.log.ok("Building flavor: " + buildFlavor + " with " + plugins.flavors[buildFlavor].plugins.length +
+			" plugins: " + JSON.stringify(plugins.flavors[buildFlavor].plugins));
+
+		src.push(plugins.flavors[buildFlavor].plugins);
+
+		buildRevision = plugins.flavors[buildFlavor].revision;
+	}
+	else {
+		src.push(plugins.plugins);
+	}
+
+	// always the last plugin
 	src.push(path.join(pluginsDir, "zzz-last-plugin.js"));
+
+	// calculate version string
+	var boomerangVersion = releaseVersion + "." + buildRevision;
+
+	//
+	// Snippets
+	//
+	var autoXhrSnippet = path.join(snippetsDir, "autoxhr-snippet.js");
+	var continuitySnippet = path.join(snippetsDir, "continuity-snippet.js");
+	var errorsSnippet = path.join(snippetsDir, "errors-snippet.js");
+	var loaderSnippet = path.join(snippetsDir, "loader-snippet.js");
+	var loaderSnippetAfterOnload = path.join(snippetsDir, "loader-snippet-after-onload.js");
 
 	//
 	// Ensure env.json exists
 	//
 	var envFile = path.resolve(path.join(testsDir, "server", "env.json"));
+	var env;
 	if (!fs.existsSync(envFile)) {
-		var envFileSample = path.resolve(path.join(testsDir, "server", "env.json.sample"));
-		console.info("Creating env.json from defaults");
-		fse.copySync(envFileSample, envFile);
+		// use the sample file if it exists
+		var sampleFile = path.resolve(path.join(testsDir, "server", "env.json.sample"));
+		if (fs.existsSync(sampleFile)) {
+			console.info("Creating env.json from defaults");
+			fse.copySync(sampleFile, envFile);
+		}
 	}
 
-	var env = grunt.file.readJSON("tests/server/env.json");
+	// load the env.json or default content
+	if (fs.existsSync(envFile)) {
+		env = grunt.file.readJSON(envFile);
+	}
+	else {
+		// default content
+		env = {
+			publish: "www"
+		};
+	}
+
+	//
+	// Browser Unit Tests
+	//
+	var browserUnitTests = [];
+	var browserUnitTestsFile = path.join(testsDir, "browsers-unit.json");
+	if (fs.existsSync(browserUnitTestsFile)) {
+		browserUnitTests = JSON.parse(stripJsonComments(grunt.file.read(browserUnitTestsFile)));
+	}
 
 	//
 	// Build SauceLabs E2E test URLs
 	//
 	var e2eTests = [];
 	if (grunt.file.exists("tests/e2e/e2e.json")) {
-		e2eTests = JSON.parse(stripJsonComments(grunt.file.read("tests/e2e/e2e.json")));
+		var e2eData = JSON.parse(stripJsonComments(grunt.file.read("tests/e2e/e2e.json")));
+		e2eTests = e2eData.tests || e2eData;
 	}
 	var e2eUrls = [];
 
@@ -84,46 +227,56 @@ module.exports = function() {
 	}
 
 	//
-	// Build numbers
-	//
-	var pkg = grunt.file.readJSON("package.json");
-	var buildNumber = grunt.option("buildNumber") || 0;
-	var releaseVersion = pkg.releaseVersion + "." + buildNumber;
-	var buildDate = Math.round(Date.now() / 1000);
-	var boomerangVersion = releaseVersion + "." + buildDate;
-
-	//
 	// Output files
 	//
 
 	// build file name is based on the version number
-	var buildFilePrefix = pkg.name + "-" + boomerangVersion;
+	var buildFilePrefix = "boomerang-" + boomerangVersion;
 	var buildPathPrefix = path.join(BUILD_PATH, buildFilePrefix);
 
-	var testBuildFilePrefix = pkg.name;
+	var testBuildFilePrefix = "boomerang";
 	var testBuildPathPrefix = path.join(TEST_BUILD_PATH, testBuildFilePrefix);
 
-	var buildDebug = buildPathPrefix + "-debug.js";
-	var buildRelease = buildPathPrefix + ".js";
-	var buildReleaseMin = buildPathPrefix + ".min.js";
+	var buildDebug = buildPathPrefix + "-debug." + buildSuffix + "js";
+	var buildDebugGz = buildPathPrefix + "-debug." + buildSuffix + "js.gz";
+	var buildDebugMin = buildPathPrefix + "-debug." + buildSuffix + "min.js";
+	var buildDebugMinGz = buildPathPrefix + "-debug." + buildSuffix + "min.js.gz";
+	var buildRelease = buildPathPrefix + "." + buildSuffix + "js";
+	var buildReleaseGz = buildPathPrefix + "." + buildSuffix + "js.gz";
+	var buildReleaseMin = buildPathPrefix + "." + buildSuffix + "min.js";
+	var buildReleaseMinGz = buildPathPrefix + "." + buildSuffix + "min.js.gz";
 	var buildTest = testBuildPathPrefix + "-latest-debug.js";
 	var buildTestMin = testBuildPathPrefix + "-latest-debug.min.js";
+
+	var buildPluginsDir = path.join(BUILD_PATH, "plugins");
+	var buildSnippetsDir = path.join(BUILD_PATH, "snippets");
+	var buildSnippetsStrippedDir = path.join(BUILD_PATH, "snippets.stripped");
 
 	//
 	// Build configuration
 	//
-	var buildConfig = {
-		server: grunt.option("server") || "localhost"
-	};
+	var buildConfig = getBuildConfig();
 
 	var bannerFilePathRelative = "./lib/banner.txt";
 	var bannerFilePathAbsolute = path.resolve(bannerFilePathRelative);
 	var bannerString = grunt.file.read(bannerFilePathAbsolute);
 
-	//
-	// Config
-	//
-	grunt.initConfig({
+	// Load perf test tasks
+	if (fs.existsSync(perfTestsDir)) {
+		// The perf tests use NodeJS 8+ features such as async/await and util.promisify
+		var nodeVersionMajor = Number(process.version.match(/^v(\d+)\.\d+/)[1]);
+
+		if (nodeVersionMajor >= 8) {
+			grunt.registerTask("perf-tests", "Tests Performance", require("./tests/perf/perf-tests"));
+			grunt.registerTask("perf-compare", "Compares current Performance to Baseline", require("./tests/perf/perf-compare"));
+		}
+		else {
+			grunt.log.writeln("Warning: Node version " + process.version + " does not support async or util.promisify, used by perf tests.");
+			grunt.log.writeln("Use NodeJS 8+ to run perf tests.");
+		}
+	}
+
+	return {
 		// package info
 		pkg: pkg,
 
@@ -135,10 +288,16 @@ module.exports = function() {
 		buildFilePrefix: buildFilePrefix,
 		buildPathPrefix: buildPathPrefix,
 		testBuildPathPrefix: testBuildPathPrefix,
+		buildSuffix: buildSuffix,
 
 		//
 		// Tasks
 		//
+		githash: {
+			main: {
+				options: {}
+			}
+		},
 		concat: {
 			options: {
 				stripBanners: false,
@@ -155,21 +314,47 @@ module.exports = function() {
 			release: {
 				src: src,
 				dest: buildRelease
+			},
+			autoXhrSnippet: {
+				src: autoXhrSnippet,
+				dest: path.join(pageTemplateSnippetsDir, "instrumentXHRSnippetNoScript.tpl")
+			},
+			continuitySnippet: {
+				src: continuitySnippet,
+				dest: path.join(pageTemplateSnippetsDir, "continuitySnippetNoScript.tpl")
+			},
+			errorsSnippet: {
+				src: errorsSnippet,
+				dest: path.join(pageTemplateSnippetsDir, "captureErrorsSnippetNoScript.tpl")
+			},
+			loaderSnippet: {
+				src: loaderSnippet,
+				dest: path.join(pageTemplateSnippetsDir, "boomerangSnippetNoScript.tpl")
+			},
+			loaderSnippetAfterOnload: {
+				src: loaderSnippetAfterOnload,
+				dest: path.join(pageTemplateSnippetsDir, "boomerangAfterOnloadSnippetNoScript.tpl")
 			}
 		},
 		mkdir: {
 			test: {
 				options: {
+					mode: "0777",
 					create: [TEST_RESULTS_PATH]
+				}
+			},
+			build: {
+				options: {
+					mode: "0777",
+					create: [BUILD_PATH]
 				}
 			}
 		},
 		eslint: {
 			target: [
-				"Gruntfile.js",
-				"boomerang.js",
-				"*.config*.js",
+				"*.js",
 				"plugins/*.js",
+				"snippets/*.js",
 				"tasks/*.js",
 				"tests/*.js",
 				"tests/unit/*.js",
@@ -180,7 +365,10 @@ module.exports = function() {
 				"tests/page-templates/**/*.html",
 				"tests/page-templates/**/*.js",
 				"tests/test-templates/**/*.js",
-				"!tests/page-templates/12-react/support/*"
+				"!tests/page-templates/12-react/support/*",
+				"!tests/page-templates/03-load-order/01-after-page-load.html",  // fails on snippet include
+				"!tests/page-templates/03-load-order/07-after-page-load-boomr-page-ready.html",  // fails on snippet include
+				"!tests/page-templates/29-opt-out-opt-in/01-opt-in-origin-injected-loader-wrapper.html"  // parse error on snippet include
 			]
 		},
 		"string-replace": {
@@ -207,14 +395,18 @@ module.exports = function() {
 							replacement: boomerangVersion
 						},
 						{
-							// strip out BOOMR = BOOMR || {}; in plugins
-							pattern: /BOOMR\s*=\s*BOOMR\s*\|\|\s*{};/g,
+							// strip out BOOMR = window.BOOMR || {}; in plugins
+							pattern: /BOOMR\s*=\s*window\.BOOMR\s*\|\|\s*{};/g,
 							replacement: ""
 						},
 						{
 							// strip out BOOMR.plugins = BOOMR.plugins || {}; in plugins
 							pattern: /BOOMR\.plugins\s*=\s*BOOMR\.plugins\s*\|\|\s*{};/g,
 							replacement: ""
+						},
+						{
+							pattern: /beacon_urls_allowed: \[\]/,
+							replacement: "beacon_urls_allowed: [" + buildConfig.beaconUrlsAllowed + "]"
 						}
 					]
 				}
@@ -229,7 +421,7 @@ module.exports = function() {
 						{
 							// Send beacons to null
 							pattern: /beacon_url: .*/,
-							replacement: "beacon_url: \"/blackhole\","
+							replacement: "beacon_url: \"/beacon\","
 						}
 					]
 				}
@@ -257,6 +449,102 @@ module.exports = function() {
 					]
 				}
 			},
+			"doc-source-code": {
+				files: [
+					{
+						"./": "build/doc/boomerangjs/**/*.html"
+					}
+				],
+				options: {
+					replacements: [
+						{
+							pattern: /%minified_consent_inline_plugin_code%/g,
+							replacement: fileForHtml.bind(this, "build/plugins/consent-inlined-plugin.min.js")
+						},
+						{
+							pattern: /%loader_snippet%/g,
+							replacement: fileForHtml.bind(this, "build/snippets.stripped/loader-snippet.js")
+						},
+						{
+							pattern: /%minified_loader_snippet%/g,
+							replacement: fileForHtml.bind(this, "build/snippets/loader-snippet.min.js")
+						},
+						{
+							pattern: /%delayed_loader_snippet%/g,
+							replacement: fileForHtml.bind(this, "build/snippets.stripped/loader-snippet-after-onload.js")
+						},
+						{
+							pattern: /%minified_delayed_loader_snippet%/g,
+							replacement: fileForHtml.bind(this, "build/snippets/loader-snippet-after-onload.min.js")
+						},
+						{
+							pattern: /\/\* eslint-.*\*\/\n/g,
+							replacement: ""
+						},
+						{
+							pattern: /%autoxhr_snippet%/g,
+							replacement: fileForHtml.bind(this, "build/snippets.stripped/autoxhr-snippet.js")
+						},
+						{
+							pattern: /%minified_autoxhr_snippet%/g,
+							replacement: fileForHtml.bind(this, "build/snippets/autoxhr-snippet.min.js")
+						},
+						{
+							pattern: /%continuity_snippet%/g,
+							replacement: fileForHtml.bind(this, "build/snippets.stripped/continuity-snippet.js")
+						},
+						{
+							pattern: /%minified_continuity_snippet%/g,
+							replacement: fileForHtml.bind(this, "build/snippets/continuity-snippet.min.js")
+						},
+						{
+							pattern: /%errors_snippet%/g,
+							replacement: fileForHtml.bind(this, "build/snippets.stripped/errors-snippet.js")
+						},
+						{
+							pattern: /%minified_errors_snippet%/g,
+							replacement: fileForHtml.bind(this, "build/snippets/errors-snippet.min.js")
+						}
+					]
+				}
+			},
+			readme: {
+				files: [
+					{
+						src: "doc/README.template.md",
+						dest: "README.md"
+					}
+				],
+				options: {
+					replacements: [
+						{
+							pattern: /%loader_snippet%/g,
+							// not escaping for HTML in a Markdown file
+							replacement: grunt.file.read.bind(this, "snippets/loader-snippet.js")
+						},
+						{
+							pattern: /%minified_loader_snippet%/g,
+							// not escaping for HTML in a Markdown file
+							replacement: grunt.file.read.bind(this, "build/snippets/loader-snippet.min.js")
+						}
+					]
+				}
+			},
+			"plugins-remove-sourcemappingurl": {
+				files: [
+					{
+						"./": path.join(buildPluginsDir, "*.min.js")
+					}
+				],
+				options: {
+					replacements: [
+						{
+							pattern: /\n\/\/# sourceMappingURL=.*/g,
+							replacement: ""
+						}
+					]
+				}
+			},
 			"remove-sourcemappingurl": {
 				files: [
 					{
@@ -268,6 +556,26 @@ module.exports = function() {
 					replacements: [
 						{
 							pattern: /\/\/# sourceMappingURL=.*/g,
+							replacement: ""
+						}
+					]
+				}
+			},
+			"eslint-rules": {
+				files: [
+					{
+						src: "README.md",
+						dest: "README.md"
+					},
+					{
+						src: path.join(pageTemplateSnippetsDir, "boomerangSnippetNoScript.tpl"),
+						dest: path.join(pageTemplateSnippetsDir, "boomerangSnippetNoScript.tpl")
+					}
+				],
+				options: {
+					replacements: [
+						{
+							pattern: /\/\* eslint-.*\*\/\n/g,
 							replacement: ""
 						}
 					]
@@ -284,6 +592,17 @@ module.exports = function() {
 					end_comment: "END_DEBUG"
 				}
 			},
+			"debug-log": {
+				files: [{
+					src: buildRelease
+				}],
+				options: {
+					patterns: [
+						/BOOMR\.debug\(.*\);/g,
+						/debugLog\(.*\);/g
+					]
+				}
+			},
 			prod: {
 				files: [
 					{
@@ -296,6 +615,26 @@ module.exports = function() {
 				options: {
 					start_comment: "BEGIN_PROD",
 					end_comment: "END_PROD"
+				}
+			},
+			"test-code": {
+				files: [{
+					src: [
+						"README.md"
+					]
+				}],
+				options: {
+					start_comment: "BEGIN_TEST_CODE",
+					end_comment: "END_TEST_CODE"
+				}
+			},
+			"snippets": {
+				files: [{
+					src: path.join(buildSnippetsStrippedDir, "*.js")
+				}],
+				options: {
+					start_comment: "BEGIN_TEST_CODE",
+					end_comment: "END_TEST_CODE"
 				}
 			}
 		},
@@ -311,19 +650,43 @@ module.exports = function() {
 						dest: env.publish + "/"
 					}
 				]
+			},
+			"perf-baseline": {
+				files: [
+					{
+						expand: false,
+						nonull: true,
+						src: "tests/perf/results/metrics.json",
+						force: true,
+						dest: "tests/perf/results/baseline.json"
+					}
+				]
+			},
+			"snippets-stripped": {
+				files: [
+					{
+						expand: true,
+						nonull: true,
+						cwd: snippetsDir,
+						src: "*.js",
+						force: true,
+						dest: buildSnippetsStrippedDir
+					}
+				]
 			}
 		},
 		uglify: {
 			options: {
-				banner: bannerString + "/* Boomerang Version: <%= boomerangVersion %> */\n"
+				banner: bannerString + "/* Boomerang Version: <%= boomerangVersion %> " +
+					(grunt.option("commit") || "<%= githash.main.hash %>") + " */\n"
 			},
 			default: {
 				options: DEFAULT_UGLIFY_BOOMERANGJS_OPTIONS,
 				files: [{
 					expand: true,
 					cwd: "build/",
-					src: ["<%= buildFilePrefix %>-debug.js",
-					      "<%= buildFilePrefix %>.js"],
+					src: ["<%= buildFilePrefix %>-debug.<%= buildSuffix %>js",
+					      "<%= buildFilePrefix %>.<%= buildSuffix %>js"],
 					dest: "build/",
 					ext: ".min.js",
 					extDot: "last"
@@ -334,6 +697,21 @@ module.exports = function() {
 				files: [{
 					src: buildTest,
 					dest: buildTestMin
+				}]
+			},
+			"inline-consent-plugin": {
+				options: {
+					preserveComments: false,
+					mangle: true,
+					banner: "",
+					sourceMap: false,
+					compress: {
+						sequences: false
+					}
+				},
+				files: [{
+					src: "plugins/consent-inlined-plugin.js",
+					dest: path.join(pageTemplateSnippetsDir, "consentInlinePluginNoScriptMin.tpl")
 				}]
 			},
 			plugins: {
@@ -350,7 +728,7 @@ module.exports = function() {
 					expand: true,
 					cwd: "plugins/",
 					src: ["./*.js"],
-					dest: "build/plugins/",
+					dest: buildPluginsDir,
 					ext: ".min.js",
 					extDot: "first"
 				}]
@@ -360,15 +738,16 @@ module.exports = function() {
 					preserveComments: false,
 					mangle: true,
 					banner: "",
-					compress: {
-						sequences: false
-					}
+					// NOTE: Not compressing so things like our <bo + dy> optimization aren't removed
+					compress: false
 				},
 				files: [{
 					expand: true,
-					cwd: "tests/page-template-snippets/",
-					src: ["instrumentXHRSnippetNoScript.tpl"],
-					dest: "build/snippets/",
+					cwd: buildSnippetsStrippedDir,
+					src: [
+						"*.js"
+					],
+					dest: buildSnippetsDir,
 					ext: ".min.js",
 					extDot: "first"
 				}]
@@ -383,19 +762,19 @@ module.exports = function() {
 				files: [
 					{
 						src: buildRelease,
-						dest: "<%= buildPathPrefix %>.js.gz"
+						dest: buildReleaseGz
 					},
 					{
 						src: buildDebug,
-						dest: "<%= buildPathPrefix %>-debug.js.gz"
+						dest: buildDebugGz
 					},
 					{
-						src: "<%= buildPathPrefix %>.min.js",
-						dest: "<%= buildPathPrefix %>.min.js.gz"
+						src: buildReleaseMin,
+						dest: buildReleaseMinGz
 					},
 					{
-						src: "<%= buildPathPrefix %>-debug.min.js",
-						dest: "<%= buildPathPrefix %>-debug.min.js.gz"
+						src: buildDebugMin,
+						dest: buildDebugMinGz
 					}
 				]
 			},
@@ -406,9 +785,9 @@ module.exports = function() {
 				},
 				files: [{
 					expand: true,
-					cwd: "build/plugins",
+					cwd: buildPluginsDir,
 					src: "./*.js",
-					dest: "build/plugins/",
+					dest: buildPluginsDir,
 					ext: ".min.js.gz",
 					extDot: "first"
 				}]
@@ -501,28 +880,59 @@ module.exports = function() {
 					"boomerang-test-framework.js",
 					"unit/*.js",
 					"build/*.js"
-				]
+				],
+				hostname: DEFAULT_TEST_MAIN_DOMAIN,
+				SELENIUM_ADDRESS: grunt.option("selenium-address")
 			},
 			unit: {
-				browsers: ["PhantomJS"],
-				frameworks: ["mocha"]
+				browsers: [DEFAULT_BROWSER]
 			},
 			all: {
-				browsers: ["Chrome", "Firefox", "IE", "Opera", "Safari", "PhantomJS"]
+				browsers: [
+					"Chrome",
+					"ChromeHeadless",
+					"Edge",
+					"Firefox",
+					"FirefoxHeadless",
+					"IE",
+					"Opera",
+					"PhantomJS",
+					"Safari",
+					"Edge"
+				]
 			},
-			chrome: {
+			allHeadless: {
+				browsers: [
+					"ChromeHeadless",
+					"FirefoxHeadless",
+					"PhantomJS"
+				]
+			},
+			Chrome: {
 				browsers: ["Chrome"]
 			},
-			ie: {
-				browsers: ["IE"]
+			ChromeHeadless: {
+				browsers: ["ChromeHeadless"]
 			},
-			ff: {
+			Firefox: {
 				browsers: ["Firefox"]
 			},
-			opera: {
+			FirefoxHeadless: {
+				browsers: ["FirefoxHeadless"]
+			},
+			IE: {
+				browsers: ["IE"]
+			},
+			Edge: {
+				browsers: ["Edge"]
+			},
+			Opera: {
 				browsers: ["Opera"]
 			},
-			safari: {
+			PhantomJS: {
+				browsers: ["PhantomJS"]
+			},
+			Safari: {
 				browsers: ["Safari"]
 			},
 			debug: {
@@ -535,19 +945,102 @@ module.exports = function() {
 				noColor: false,
 				keepAlive: false
 			},
-			phantomjs: {
-				configFile: "tests/protractor.config.phantom.js"
+
+			PhantomJS: {
+				options: {
+					configFile: "tests/protractor-config/phantom.js",
+					args: {
+						seleniumAddress: SELENIUM_ADDRESS,
+						specs: ["tests/e2e/e2e.js"],
+						baseUrl: E2E_BASE_URL
+					}
+				}
 			},
-			chrome: {
-				configFile: "tests/protractor.config.chrome.js"
+			Chrome: {
+				options: {
+					configFile: "tests/protractor-config/chrome.js",
+					args: {
+						seleniumAddress: SELENIUM_ADDRESS,
+						specs: ["tests/e2e/e2e.js"],
+						baseUrl: E2E_BASE_URL
+					}
+				}
+			},
+			ChromeHeadless: {
+				options: {
+					configFile: "tests/protractor-config/chromeheadless.js",
+					args: {
+						seleniumAddress: SELENIUM_ADDRESS,
+						specs: ["tests/e2e/e2e.js"],
+						baseUrl: E2E_BASE_URL
+					}
+				}
+			},
+			Firefox: {
+				options: {
+					configFile: "tests/protractor-config/firefox.js",
+					args: {
+						seleniumAddress: SELENIUM_ADDRESS,
+						specs: ["tests/e2e/e2e.js"],
+						baseUrl: E2E_BASE_URL
+					}
+				}
+			},
+			FirefoxHeadless: {
+				options: {
+					configFile: "tests/protractor-config/firefoxheadless.js",
+					args: {
+						seleniumAddress: SELENIUM_ADDRESS,
+						specs: ["tests/e2e/e2e.js"],
+						baseUrl: E2E_BASE_URL
+					}
+				}
+			},
+			Edge: {
+				options: {
+					configFile: "tests/protractor-config/edge.js",
+					args: {
+						seleniumAddress: SELENIUM_ADDRESS,
+						specs: ["tests/e2e/e2e.js"],
+						baseUrl: E2E_BASE_URL
+					}
+				}
+			},
+			IE: {
+				options: {
+					configFile: "tests/protractor-config/ie.js",
+					args: {
+						seleniumAddress: SELENIUM_ADDRESS,
+						specs: ["tests/e2e/e2e.js"],
+						baseUrl: E2E_BASE_URL
+					}
+				}
+			},
+			Safari: {
+				options: {
+					configFile: "tests/protractor-config/safari.js",
+					args: {
+						seleniumAddress: SELENIUM_ADDRESS,
+						specs: ["tests/e2e/e2e.js"],
+						baseUrl: E2E_BASE_URL
+					}
+				}
 			},
 			debug: {
-				configFile: "tests/protractor.config.debug.js"
+				options: {
+					configFile: "tests/protractor-config/debug.js",
+					args: {
+						seleniumAddress: SELENIUM_ADDRESS,
+						specs: ["tests/e2e/e2e-debug.js"],
+						baseUrl: E2E_BASE_URL
+					}
+				}
 			}
 		},
 		protractor_webdriver: {
 			options: {
-				keepAlive: true
+				keepAlive: true,
+				command: "webdriver-manager start " + (webDriverVersions || "")
 			},
 			e2e: {
 			}
@@ -559,13 +1052,15 @@ module.exports = function() {
 			},
 			dev: {
 				options: {
-					script: "tests/server/app.js"
+					script: "tests/server/app.js",
+					args: [ TEST_SCHEME || "http" ]
 				}
 			},
-			"secondary": {
+			secondary: {
 				options: {
 					script: "tests/server/app.js",
-					port: (TEST_DEBUG_PORT + 1)
+					port: (TEST_DEBUG_PORT + 1),
+					args: [ TEST_SCHEME || "http" ]
 				}
 			},
 			doc: {
@@ -576,49 +1071,41 @@ module.exports = function() {
 			}
 		},
 		"saucelabs-mocha": {
-			all: {
-				options: {
-					// username: "", // SAUCE_USERNAME
-					// key: "",      // SAUCE_ACCESS_KEY
-					build: process.env.CI_BUILD_NUMBER,
-					tunneled: false
-				}
-			},
 			unit: {
-				options: {
+				options: Object.assign({
 					urls: [TEST_URL_BASE + "unit/"],
 					testname: "Boomerang Unit Tests",
-					browsers: JSON.parse(stripJsonComments(grunt.file.read("tests/browsers-unit.json")))
-				}
+					browsers: browserUnitTests
+				}, SAUCELABS_CONFIG)
 			},
 			"unit-debug": {
-				options: {
+				options: Object.assign({
 					urls: [TEST_URL_BASE + "unit/"],
 					testname: "Boomerang Unit Tests",
 					browsers: [{
-						"browserName": "internet explorer",
+						browserName: "internet explorer",
 						"version": "11",
 						"platform": "Windows 8.1"
 					}]
-				}
+				}, SAUCELABS_CONFIG)
 			},
 			e2e: {
-				options: {
+				options: Object.assign({
 					urls: e2eUrls,
 					testname: "Boomerang E2E Tests",
-					browsers: JSON.parse(stripJsonComments(grunt.file.read("tests/browsers-unit.json")))
-				}
+					browsers: browserUnitTests
+				}, SAUCELABS_CONFIG)
 			},
 			"e2e-debug": {
-				options: {
+				options: Object.assign({
 					urls: e2eUrls,
 					testname: "Boomerang E2E Tests",
 					browsers: [{
-						"browserName": "internet explorer",
+						browserName: "internet explorer",
 						"version":     "11",
 						"platform":    "Windows 8.1"
 					}]
-				}
+				}, SAUCELABS_CONFIG)
 			}
 		},
 		jsdoc: {
@@ -629,7 +1116,8 @@ module.exports = function() {
 					destination: "build/doc",
 					package: "package.json",
 					readme: "README.md",
-					configure: "jsdoc.conf.json"
+					configure: "jsdoc.conf.json",
+					template: "doc-template"
 				}
 			}
 		},
@@ -642,7 +1130,9 @@ module.exports = function() {
 					"tests/unit/**/*",
 					"tests/test-templates/**/*.js",
 					"!tests/page-templates/12-react/support/*.jsx",
-					"!*.#*"
+					"!*.#*",
+					"!*~",
+					"!#*#"
 				],
 				tasks: ["pages-builder"]
 			},
@@ -670,12 +1160,52 @@ module.exports = function() {
 				files: [
 					"boomerang.js",
 					"plugins/*.js",
-					"doc/**/**"
+					"doc/**/**",
+					"README.md"
 				],
-				tasks: ["clean", "jsdoc"]
+				tasks: ["clean", "jsdoc", "doc-source-code"]
+			}
+		},
+		shell: {
+			"generate-certificate": {
+				stdin: true,
+				command: [
+					"echo '[req]\ndistinguished_name=req\n[san]\nsubjectAltName=DNS:" + DEFAULT_TEST_MAIN_DOMAIN + ",DNS:" + DEFAULT_TEST_SECONDARY_DOMAIN + "'",
+					"|",
+					"openssl req",
+					"-x509",
+					"-newkey rsa:4096",
+					"-sha256",
+					"-days 3560",
+					"-nodes",
+					"-keyout tests/server/certs/" + DEFAULT_TEST_MAIN_DOMAIN + ".pem",
+					"-out tests/server/certs/" + DEFAULT_TEST_MAIN_DOMAIN + ".crt",
+					"-subj '/CN=" + DEFAULT_TEST_MAIN_DOMAIN + "'",
+					"-extensions san",
+					"-config /dev/stdin"
+				].join(" ")
 			}
 		}
-	});
+	};
+}
+
+//
+// Grunt call
+//
+module.exports = function() {
+	//
+	// Paths
+	//
+	var testsDir = path.join(__dirname, "tests");
+	var perfTestsDir = path.join(testsDir, "perf");
+	var pageTemplateSnippetsDir = path.join(testsDir, "page-template-snippets");
+	var pluginsDir = path.join(__dirname, "plugins");
+	var snippetsDir = path.join(__dirname, "snippets");
+	//
+	// Config
+	//
+	grunt.initConfig(getConfig());
+	var buildConfig = getBuildConfig();
 
 	grunt.loadNpmTasks("gruntify-eslint");
 	grunt.loadNpmTasks("grunt-babel");
@@ -697,13 +1227,35 @@ module.exports = function() {
 	grunt.loadNpmTasks("grunt-strip-code");
 	grunt.loadNpmTasks("grunt-contrib-watch");
 	grunt.loadNpmTasks("grunt-jsdoc");
+	grunt.loadNpmTasks("grunt-githash");
+	grunt.loadNpmTasks("grunt-shell");
 
 	// tasks/*.js
 	if (grunt.file.exists("tasks")) {
 		grunt.loadTasks("tasks");
 	}
 
-	grunt.registerTask("pages-builder", "Builds our HTML tests/pages", require(path.join(testsDir, "builder")));
+	grunt.registerTask("pages-builder", "Builds our HTML tests/pages", function() {
+		return require(path.join(testsDir, "builder"))(
+			this,
+			path.join(testsDir, "page-templates"),
+			pageTemplateSnippetsDir,
+			path.join(testsDir, "pages"),
+			path.join(testsDir, "e2e"),
+			path.join(testsDir, "e2e", "e2e.json")
+		);
+	});
+
+	grunt.registerTask("pages-builder-perf", "Builds our HTML tests/pages for Perf Testing", function() {
+		return require(path.join(testsDir, "builder"))(
+			this,
+			path.join(testsDir, "perf", "page-templates"),
+			pageTemplateSnippetsDir,
+			path.join(testsDir, "perf", "pages"),
+			path.join(testsDir, "perf", "pages"),
+			path.join(testsDir, "perf", "scenarios.json")
+		);
+	});
 
 	// Custom aliases for configured grunt tasks
 	var aliases = {
@@ -712,8 +1264,25 @@ module.exports = function() {
 		//
 		// Build
 		//
-		"build": ["concat", "build:apply-templates", "uglify", "string-replace:remove-sourcemappingurl", "compress", "metrics"],
-		"build:test": ["concat:debug", "concat:debug-tests", "!build:apply-templates", "uglify:debug-test-min"],
+		"build": [
+			"concat",
+			"build:apply-templates",
+			"githash",
+			"copy:snippets-stripped",
+			"strip_code:snippets",
+			"uglify",
+			"string-replace:remove-sourcemappingurl",
+			"compress",
+			"metrics"
+		],
+
+		"build:test": [
+			"concat:debug",
+			"concat:debug-tests",
+			"!build:apply-templates",
+			"uglify:debug-test-min",
+			"uglify:inline-consent-plugin"
+		],
 
 		// Build steps
 		"build:apply-templates": [
@@ -721,6 +1290,7 @@ module.exports = function() {
 			"!string-replace:debug-tests",
 			"string-replace:release",
 			"!strip_code:debug",
+			"!strip_code:debug-log",
 			"!strip_code:prod"
 		],
 
@@ -731,6 +1301,26 @@ module.exports = function() {
 		// Lint
 		//
 		"lint": ["eslint"],
+
+		//
+		// Docs
+		//
+		"doc-source-code": [
+			"uglify:plugins",
+			"string-replace:plugins-remove-sourcemappingurl",
+			"string-replace:doc-source-code"
+		],
+
+		// Documentation
+		"doc": [
+			"string-replace:readme",
+			"strip_code:test-code",
+			"string-replace:eslint-rules",
+			"jsdoc",
+			"strip_code:test-code",
+			"doc-source-code"
+		],
+		"test:doc": ["clean", "jsdoc", "doc-source-code", "express:doc", "watch:doc"],
 
 		//
 		// Test tasks
@@ -756,29 +1346,51 @@ module.exports = function() {
 		"test:karma:debug": ["test:build", "build:test", "karma:debug"],
 
 		// unit tests
-		"test:unit": ["test:build", "build", "karma:unit"],
+		"test:unit": ["test:build", "build", "karma:unit:" + DEFAULT_BROWSER],
 		"test:unit:all": ["build", "karma:all"],
-		"test:unit:chrome": ["build", "karma:chrome"],
-		"test:unit:ff": ["build", "karma:ff"],
-		"test:unit:ie": ["build", "karma:ie"],
-		"test:unit:opera": ["build", "karma:opera"],
-		"test:unit:safari": ["build", "karma:safari"],
+		"test:unit:allHeadless": ["build", "karma:allHeadless"],
+		"test:unit:Chrome": ["build", "karma:Chrome"],
+		"test:unit:ChromeHeadless": ["build", "karma:ChromeHeadless"],
+		"test:unit:Firefox": ["build", "karma:Firefox"],
+		"test:unit:FirefoxHeadless": ["build", "karma:FirefoxHeadless"],
+		"test:unit:Edge": ["build", "karma:Edge"],
+		"test:unit:IE": ["build", "karma:IE"],
+		"test:unit:Opera": ["build", "karma:Opera"],
+		"test:unit:Safari": ["build", "karma:Safari"],
+		"test:unit:PhantomJS": ["build", "karma:PhantomJS"],
 
 		// End-to-End tests
-		"test:e2e": ["test:build", "build", "test:e2e:phantomjs"],
-		"test:e2e:chrome": ["build", "express:dev", "express:secondary", "protractor_webdriver", "protractor:chrome"],
-		"test:e2e:debug": ["build", "test:build", "build:test", "express:dev", "express:secondary", "protractor_webdriver", "protractor:debug"],
-		"test:e2e:phantomjs": ["build", "express:dev", "express:secondary", "protractor_webdriver", "protractor:phantomjs"],
-
-		"test:doc": ["clean", "jsdoc", "express:doc", "watch:doc"],
+		"test:e2e": ["test:e2e:" + DEFAULT_BROWSER],
+		"test:e2e:browser": ["test:build", "build", "express:dev", "express:secondary"],
+		"test:e2e:debug": ["test:e2e:browser", "protractor:debug"],
+		"test:e2e:PhantomJS": ["test:e2e:browser", "protractor:PhantomJS"],
+		"test:e2e:Chrome": ["test:e2e:browser", "protractor:Chrome"],
+		"test:e2e:ChromeHeadless": ["test:e2e:browser", "protractor:ChromeHeadless"],
+		"test:e2e:Firefox": ["test:e2e:browser", "protractor:Firefox"],
+		"test:e2e:FirefoxHeadless": ["test:e2e:browser", "protractor:FirefoxHeadless"],
+		"test:e2e:Edge": ["test:e2e:browser", "protractor:Edge"],
+		"test:e2e:IE": ["test:e2e:browser", "protractor:IE"],
+		"test:e2e:Safari": ["test:e2e:browser", "protractor:Safari"],
 
 		// SauceLabs tests
 		"test:matrix": ["test:matrix:unit", "test:matrix:e2e"],
 		"test:matrix:e2e": ["pages-builder", "saucelabs-mocha:e2e"],
 		"test:matrix:e2e:debug": ["pages-builder", "saucelabs-mocha:e2e-debug"],
 		"test:matrix:unit": ["saucelabs-mocha:unit"],
-		"test:matrix:unit:debug": ["saucelabs-mocha:unit-debug"]
+		"test:matrix:unit:debug": ["saucelabs-mocha:unit-debug"],
+
+		//
+		// Perf tasks
+		//
+		"perf": ["build", "pages-builder-perf", "express:dev", "perf-tests"],
+		"perf:baseline": ["build", "pages-builder-perf", "express:dev", "perf-tests", "copy:perf-baseline"],
+		"perf:compare": ["build", "pages-builder-perf", "express:dev", "perf-tests", "perf-compare"]
 	};
+
+	// launch selenium if another address wasn't provided
+	if (!grunt.option("selenium-address")) {
+		aliases["test:e2e:browser"].push("protractor_webdriver");
+	}
 
 	function isAlias(task) {
 		return aliases[task] ? true : false;
@@ -839,4 +1451,185 @@ module.exports = function() {
 		delete grunt.config.data.watch.doc;
 		grunt.task.run("watch");
 	});
+
+	//
+	// build:flavors
+	//
+	grunt.registerTask("build:flavors", function() {
+		var done = this.async();
+
+		// config
+		var buildNumber = grunt.option("build-number") || 0;
+		if (buildNumber === 0) {
+			grunt.fail.fatal("--build-number must be specified");
+		}
+
+		runForEachFlavor(
+			"build",
+			"build",
+			[
+				"--build-number=" + buildNumber
+			],
+			true,
+			done);
+	});
+
+	//
+	// test:unit:flavors
+	//
+	grunt.registerTask("test:unit:flavors", function() {
+		var done = this.async();
+
+		runForEachFlavor(
+			"test-unit",
+			"test:unit",
+			[],
+			false,
+			done);
+	});
+
+	//
+	// test:e2e:flavors
+	//
+	grunt.registerTask("test:e2e:flavors", function() {
+		var done = this.async();
+
+		// protractor_webdriver should've already been started so we can reuse it
+		grunt.task.requires("protractor_webdriver");
+
+		runForEachFlavor(
+			"test-e2e",
+			"test:e2e",
+			[
+				"--selenium-address=" + SELENIUM_ADDRESS
+			],
+			false,
+			done);
+	});
 };
+
+/**
+ * Runs the specific task for each build flavor
+ *
+ * @param {string} logName Log file name
+ * @param {string} taskName Grunt task name
+ * @param {string[]} args Grunt command-line arguments
+ * @param {boolean} failOnError Fail on error
+ * @param {function} done Callback
+ */
+function runForEachFlavor(logName, taskName, args, failOnError, done) {
+	// get all plugin definitions
+	var plugins = grunt.file.readJSON("plugins.json");
+
+	var pkg = grunt.file.readJSON("package.json");
+	var buildNumber = grunt.option("build-number") || 0;
+	var releaseVersion = pkg.releaseVersion + "." + buildNumber;
+
+	var flavorList = [];
+
+	// Add the base "full" version as its also a flavor.
+	flavorList.push(releaseVersion + ".0");
+
+	// Build list of all flavor version codes in this release
+	for (var f in plugins.flavors) {
+		if (!plugins.flavors.hasOwnProperty(f)) {
+			continue;
+		}
+
+		var buildFlavor = plugins.flavors[f];
+		flavorList.push(releaseVersion + "." + buildFlavor.revision);
+	}
+
+	// output log
+	var outputLogFile = path.join("build", logName + ".full.log");
+	var outputLogStream = fs.createWriteStream(outputLogFile, {
+		flags: "a"
+	});
+
+	grunt.log.ok("Running " + taskName + " on full build");
+
+	// Let the environment know the flavor
+	process.env.BUILD_FLAVOR = "full";
+
+	var argsWithTask = args.concat(taskName);
+	var argsWithTaskAndFlavors = argsWithTask.concat([
+		"--parent-flavor-version=" + releaseVersion + ".0",
+		"--is-parent-flavor=true",
+		"--is-child-flavor=false"
+	]);
+	//
+	// Full build
+	//
+	var child = grunt.util.spawn({
+		grunt: true,
+		args: argsWithTaskAndFlavors
+	}, function(error, result, code) {
+		outputLogStream.close();
+
+		if (error) {
+			logSpawnError(error, result);
+
+			if (failOnError) {
+				grunt.fail.fatal("Build failed");
+
+				return done("Build failed");
+			}
+		}
+
+		// set parent flavor version
+		var argsWithTaskAndPVersion = argsWithTask.concat([
+			"--parent-flavor-version=" + releaseVersion + ".0",
+			"--is-parent-flavor=false",
+			"--is-child-flavor=true"
+		]);
+		//
+		// Each flavor
+		//
+		async.eachSeries(Object.keys(plugins.flavors), function(flavor, cb) {
+			// Let the environment know the flavor
+			process.env.BUILD_FLAVOR = flavor;
+
+			// output log
+			outputLogFile = path.join("build", logName + "." + flavor + ".log");
+			outputLogStream = fs.createWriteStream(outputLogFile, {
+				flags: "a"
+			});
+
+			grunt.log.ok("Running " + taskName + " on " + flavor);
+
+			var child2 = grunt.util.spawn({
+				grunt: true,
+				args: argsWithTaskAndPVersion.concat("--build-flavor=" + flavor)
+			}, function(errorFlavor, resultFlavor) {
+				outputLogStream.close();
+
+				if (errorFlavor) {
+					logSpawnError(errorFlavor, resultFlavor);
+				}
+
+				cb((failOnError && errorFlavor) ? ("Error with " + flavor) : undefined);
+			});
+
+			child2.stdout.pipe(outputLogStream);
+			child2.stderr.pipe(outputLogStream);
+		}, done);
+	});
+
+	child.stdout.pipe(outputLogStream);
+	child.stderr.pipe(outputLogStream);
+}
+
+function logSpawnError(error, result) {
+	// Log output
+	console.log(error);
+
+	if (result.stderr) {
+		console.error("********* stderr *********");
+		console.error(result.stderr);
+	}
+
+	if (result.stdout) {
+		console.error("********* stdout *********");
+		console.error(result.stdout);
+	}
+}

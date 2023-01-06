@@ -5,6 +5,11 @@ describe("e2e/03-load-order/01-after-page-load", function() {
 	var tf = BOOMR.plugins.TestFramework;
 	var t = BOOMR_test;
 
+	it("Should contain BOOMR.url set to boomerang's URL", function() {
+		assert.isString(BOOMR.url, "is not a string");
+		assert.match(BOOMR.url, /\/boomerang-latest-debug.js($|\?)/, "does not match: " + BOOMR.url);
+	});
+
 	it("Should pass basic beacon validation", function(done) {
 		t.validateBeaconWasSent(done);
 	});
@@ -14,6 +19,9 @@ describe("e2e/03-load-order/01-after-page-load", function() {
 		if (window.performance && window.performance.timing) {
 			assert.equal(b["rt.tstart"], window.performance.timing.navigationStart);
 		}
+		else {
+			return this.skip();
+		}
 	});
 
 	it("Should have an empty rt.tstart (if NavTiming not supported)", function() {
@@ -21,12 +29,18 @@ describe("e2e/03-load-order/01-after-page-load", function() {
 		if (!(window.performance && window.performance.timing)) {
 			assert.isUndefined(b["rt.tstart"]);
 		}
+		else {
+			return this.skip();
+		}
 	});
 
-	it("Should have a end timestamp equal to NavigationTiming's loadEventStart timestamp (if NavTiming supported)", function() {
+	it("Should have a end timestamp equal to NavigationTiming's loadEventEnd timestamp (if NavTiming supported)", function() {
 		var b = tf.lastBeacon();
 		if (window.performance && window.performance.timing) {
-			assert.equal(b["rt.end"], window.performance.timing.loadEventStart);
+			assert.equal(b["rt.end"], window.performance.timing.loadEventEnd);
+		}
+		else {
+			return this.skip();
 		}
 	});
 
@@ -37,6 +51,9 @@ describe("e2e/03-load-order/01-after-page-load", function() {
 			assert.operator(b["rt.end"], ">=", now - 3600000);
 			assert.operator(b["rt.end"], "<=", now);
 		}
+		else {
+			return this.skip();
+		}
 	});
 
 	it("Should be a 'navigation' (if NavTiming supported)", function() {
@@ -44,12 +61,18 @@ describe("e2e/03-load-order/01-after-page-load", function() {
 		if (window.performance && window.performance.timing) {
 			assert.equal(b["rt.start"], "navigation");
 		}
+		else {
+			return this.skip();
+		}
 	});
 
 	it("Should be a 'none' (if NavTiming not supported)", function() {
 		var b = tf.lastBeacon();
 		if (!(window.performance && window.performance.timing)) {
 			assert.equal(b["rt.start"], "none");
+		}
+		else {
+			return this.skip();
 		}
 	});
 });

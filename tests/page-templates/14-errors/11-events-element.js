@@ -8,6 +8,7 @@ describe("e2e/14-errors/11-events-element", function() {
 
 	if (!window.addEventListener) {
 		it("Skipping on browser that doesn't support addEventListener", function() {
+			return this.skip();
 		});
 
 		return;
@@ -39,7 +40,10 @@ describe("e2e/14-errors/11-events-element", function() {
 		var err = BOOMR.plugins.Errors.decompressErrors(C.jsUrlDecompress(b.err))[0];
 
 		if (err.fileName) {
-			assert.include(err.fileName, "11-events-element.html");
+			assert.include(err.fileName, window.location.pathname.substring(window.location.pathname.lastIndexOf("/") + 1));
+		}
+		else {
+			return this.skip();
 		}
 	});
 
@@ -50,17 +54,21 @@ describe("e2e/14-errors/11-events-element", function() {
 		if (err.functionName) {
 			assert.include(err.functionName, "errorFunction");
 		}
+		else {
+			return this.skip();
+		}
 	});
 
 	it("Should have message = 'a is not defined' or 'Can't find variable: a' or ''a' is undefined'", function() {
 		var b = tf.lastBeacon();
 		var err = BOOMR.plugins.Errors.decompressErrors(C.jsUrlDecompress(b.err))[0];
 
-		// Chrome, Firefox == a is not defined, Safari = Can't find variable
+		// Chrome, Firefox == a is not defined, Safari = Can't find variable, Edge = 'a' is not defined
 		assert.isTrue(
 			err.message.indexOf("a is not defined") !== -1 ||
 			err.message.indexOf("Can't find variable: a") !== -1 ||
-			err.message.indexOf("'a' is undefined") !== -1);
+			err.message.indexOf("'a' is undefined") !== -1 ||
+			err.message.indexOf("'a' is not defined") !== -1);
 	});
 
 	it("Should have source = APP", function() {
@@ -93,14 +101,20 @@ describe("e2e/14-errors/11-events-element", function() {
 		if (typeof err.columnNumber !== "undefined") {
 			assert.isTrue(err.columnNumber >= 0);
 		}
+		else {
+			return this.skip();
+		}
 	});
 
-	it("Should have lineNumber ~ 42", function() {
+	it("Should have lineNumber ~ " + (HEADER_LINES + 18), function() {
 		var b = tf.lastBeacon();
 		var err = BOOMR.plugins.Errors.decompressErrors(C.jsUrlDecompress(b.err))[0];
 
 		if (err.lineNumber) {
-			assert.closeTo(err.lineNumber, 42, 5);
+			assert.closeTo(err.lineNumber, HEADER_LINES + 18, 5);
+		}
+		else {
+			return this.skip();
 		}
 	});
 });
